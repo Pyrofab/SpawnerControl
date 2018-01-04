@@ -2,9 +2,9 @@
   {
     "modid": "spawnercontrol",
     "name": "SpawnerControl",
-    "description": "A mod to customise spawners abilities",
-    "version": "${version}",
-    "mcversion": "${mcversion}",
+    "description": "A mod to customise spawners behaviour",
+    "version": "${modVersion}",
+    "mcversion": "${mcVersion}",
     "url": "",
     "updateUrl": "",
     "authorList": [
@@ -13,8 +13,6 @@
     "credits": "",
     "logoFile": "",
     "screenshots": [],
-    "dependencies": [
-      ""
-    ]
+    "dependencies": []
   }
 ]

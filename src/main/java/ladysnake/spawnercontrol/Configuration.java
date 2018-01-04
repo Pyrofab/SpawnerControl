@@ -1,11 +1,13 @@
 package ladysnake.spawnercontrol;
 
 import net.minecraftforge.common.config.Config;
-
-import java.util.HashMap;
-import java.util.Map;
+import net.minecraftforge.common.config.ConfigManager;
+import net.minecraftforge.fml.client.event.ConfigChangedEvent;
+import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 
 @Config(modid=SpawnerControl.MOD_ID)
+@Mod.EventBusSubscriber(modid = SpawnerControl.MOD_ID)
 public class Configuration {
 
     @Config.Comment("When a spawner has spawned this number of mobs over this lifetime, it will get broken automatically")
@@ -20,7 +22,13 @@ public class Configuration {
     @Config.Comment("The formula used to calculate xp dropped is 'xpDropped + rand(this number) + rand(this number)'")
     public static int randXpVariation = 15;
 
-    @Config.Comment("A list of item ids that a mob spawner drops when broken")
-    public static Map<String, Integer> itemsDropped = new HashMap<String, Integer>();
+    @Config.Comment("A list of item ids that a mob spawner drops when broken\nFormat: 'modid:item(:count(:meta))' (count and meta are optional)")
+    public static String[] itemsDropped = new String[0];
+
+    @SubscribeEvent
+    public static void onConfigChanged(ConfigChangedEvent.OnConfigChangedEvent event) {
+        if (event.getModID().equals(SpawnerControl.MOD_ID))
+            ConfigManager.sync(SpawnerControl.MOD_ID, Config.Type.INSTANCE);
+    }
 
 }

@@ -1,4 +1,4 @@
-package ladysnake.spawnercontrol.controlledspawner;
+package ladysnake.spawnercontrol;
 
 import com.google.common.collect.Lists;
 import net.minecraft.block.state.IBlockState;
@@ -8,6 +8,7 @@ import net.minecraft.init.Blocks;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
 import net.minecraft.tileentity.MobSpawnerBaseLogic;
+import net.minecraft.tileentity.TileEntityMobSpawner;
 import net.minecraft.util.*;
 import net.minecraft.util.math.AxisAlignedBB;
 import net.minecraft.util.math.BlockPos;
@@ -23,8 +24,8 @@ import java.util.List;
 /**
  * Almost the same as the vanilla one, everything is just copied here because all the fields are private and I'm lazy
  */
-class ControlledSpawnerLogic extends MobSpawnerBaseLogic {
-    private TileEntityControlledSpawner tileEntityControlledSpawner;
+public class ControlledSpawnerLogic extends MobSpawnerBaseLogic {
+    private TileEntityMobSpawner tileEntityControlledSpawner;
     /**
      * The delay to spawn.
      */
@@ -59,7 +60,9 @@ class ControlledSpawnerLogic extends MobSpawnerBaseLogic {
      */
     private int spawnRange = 4;
 
-    public ControlledSpawnerLogic(TileEntityControlledSpawner tileEntityControlledSpawner) {
+    private int spawnedMobsCount;
+
+    public ControlledSpawnerLogic(TileEntityMobSpawner tileEntityControlledSpawner) {
         this.tileEntityControlledSpawner = tileEntityControlledSpawner;
     }
 
@@ -76,17 +79,20 @@ class ControlledSpawnerLogic extends MobSpawnerBaseLogic {
     }
 
     /**
-     * Returns true if there's a player close enough to this mob spawner to activate it.
+     * Returns true if there's a player close enough to this mob spawner to activate it AND the spawner hasn't reached its max spawn count.
      */
     private boolean isActivated() {
         BlockPos blockpos = this.getSpawnerPosition();
-        return this.getSpawnerWorld().isAnyPlayerWithinRangeAt((double) blockpos.getX() + 0.5D, (double) blockpos.getY() + 0.5D, (double) blockpos.getZ() + 0.5D, (double) this.activatingRangeFromPlayer);
+        return this.spawnedMobsCount < Configuration.mobThreshold
+                && this.getSpawnerWorld().isAnyPlayerWithinRangeAt((double) blockpos.getX() + 0.5D, (double) blockpos.getY() + 0.5D, (double) blockpos.getZ() + 0.5D, (double) this.activatingRangeFromPlayer);
     }
 
     @Override
     public void updateSpawner() {
         if (!this.isActivated()) {
             this.prevMobRotation = this.mobRotation;
+            if (Configuration.breakSpawner)
+                getSpawnerWorld().setBlockToAir(getSpawnerPosition());
         } else {
             BlockPos blockpos = this.getSpawnerPosition();
 
@@ -152,8 +158,16 @@ class ControlledSpawnerLogic extends MobSpawnerBaseLogic {
                             entityliving.spawnExplosionParticle();
                         }
 
-                        // stop spawning mobs if we reached the max
-                        if (this.tileEntityControlledSpawner.incrementSpawnedMobs()) return;
+
+                        // Update the mobs spawned count
+                        if (++this.spawnedMobsCount >= Configuration.mobThreshold) {
+                            if (Configuration.breakSpawner)
+                                world.setBlockToAir(getSpawnerPosition());
+                            // stop spawning mobs if we reached the max
+                            return;
+                        }
+
+
 
                         flag = true;
                     }
@@ -241,23 +255,25 @@ class ControlledSpawnerLogic extends MobSpawnerBaseLogic {
         if (this.getSpawnerWorld() != null) {
             this.cachedEntity = null;
         }
+
+        this.spawnedMobsCount = nbt.getInteger("spawnedMobs");
     }
 
     @Nonnull
-    public NBTTagCompound writeToNBT(@Nonnull NBTTagCompound p_189530_1_) {
+    public NBTTagCompound writeToNBT(@Nonnull NBTTagCompound nbt) {
         ResourceLocation resourcelocation = this.getEntityId();
 
         if (resourcelocation == null) {
-            return p_189530_1_;
+            return nbt;
         } else {
-            p_189530_1_.setShort("Delay", (short) this.spawnDelay);
-            p_189530_1_.setShort("MinSpawnDelay", (short) this.minSpawnDelay);
-            p_189530_1_.setShort("MaxSpawnDelay", (short) this.maxSpawnDelay);
-            p_189530_1_.setShort("SpawnCount", (short) this.spawnCount);
-            p_189530_1_.setShort("MaxNearbyEntities", (short) this.maxNearbyEntities);
-            p_189530_1_.setShort("RequiredPlayerRange", (short) this.activatingRangeFromPlayer);
-            p_189530_1_.setShort("SpawnRange", (short) this.spawnRange);
-            p_189530_1_.setTag("SpawnData", this.spawnData.getNbt().copy());
+            nbt.setShort("Delay", (short) this.spawnDelay);
+            nbt.setShort("MinSpawnDelay", (short) this.minSpawnDelay);
+            nbt.setShort("MaxSpawnDelay", (short) this.maxSpawnDelay);
+            nbt.setShort("SpawnCount", (short) this.spawnCount);
+            nbt.setShort("MaxNearbyEntities", (short) this.maxNearbyEntities);
+            nbt.setShort("RequiredPlayerRange", (short) this.activatingRangeFromPlayer);
+            nbt.setShort("SpawnRange", (short) this.spawnRange);
+            nbt.setTag("SpawnData", this.spawnData.getNbt().copy());
             NBTTagList nbttaglist = new NBTTagList();
 
             if (this.potentialSpawns.isEmpty()) {
@@ -268,8 +284,9 @@ class ControlledSpawnerLogic extends MobSpawnerBaseLogic {
                 }
             }
 
-            p_189530_1_.setTag("SpawnPotentials", nbttaglist);
-            return p_189530_1_;
+            nbt.setTag("SpawnPotentials", nbttaglist);
+            nbt.setInteger("spawnedMobs", this.spawnedMobsCount);
+            return nbt;
         }
     }
 
