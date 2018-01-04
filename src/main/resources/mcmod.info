@@ -1,0 +1,20 @@
+[
+  {
+    "modid": "spawnercontrol",
+    "name": "SpawnerControl",
+    "description": "A mod to customise spawners abilities",
+    "version": "${version}",
+    "mcversion": "${mcversion}",
+    "url": "",
+    "updateUrl": "",
+    "authorList": [
+      "Pyrofab"
+    ],
+    "credits": "",
+    "logoFile": "",
+    "screenshots": [],
+    "dependencies": [
+      ""
+    ]
+  }
+]
