@@ -3,10 +3,14 @@ package ladysnake.spawnercontrol;
 import net.minecraft.block.BlockMobSpawner;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.tileentity.MobSpawnerBaseLogic;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.tileentity.TileEntityMobSpawner;
 import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.math.BlockPos;
 import net.minecraftforge.event.AttachCapabilitiesEvent;
+import net.minecraftforge.event.entity.living.LivingDeathEvent;
 import net.minecraftforge.event.world.BlockEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
@@ -35,10 +39,32 @@ public class SpawnerEventHandler {
 
     @SubscribeEvent
     public static void onTickWorldTick(TickEvent.WorldTickEvent event) {
+        if (event.side.isClient()) return;
         for (Iterator<TileEntityMobSpawner> iterator = spawners.iterator(); iterator.hasNext(); ) {
             TileEntityMobSpawner spawner = iterator.next();
-            spawner.spawnerLogic = new ControlledSpawnerLogic(spawner);
+            if (spawner.getWorld() != null && !spawner.getWorld().isRemote) {
+                MobSpawnerBaseLogic logic = new ControlledSpawnerLogic(spawner);
+                // preserve the spawn information
+                logic.readFromNBT(spawner.spawnerLogic.writeToNBT(new NBTTagCompound()));
+                spawner.spawnerLogic = logic;
+            }
             iterator.remove();
+        }
+    }
+
+    @SubscribeEvent
+    public static void onLivingDeath(LivingDeathEvent event) {
+        if (!Configuration.incrementOnMobDeath) return;
+        long spawnerPos = event.getEntityLiving().getEntityData().getLong(ControlledSpawnerLogic.NBT_TAG_SPAWNER_POS);
+        if (spawnerPos != 0) {
+            TileEntity tile = event.getEntityLiving().getEntityWorld().getTileEntity(BlockPos.fromLong(spawnerPos));
+            if (tile instanceof TileEntityMobSpawner) {
+                TileEntityMobSpawner spawner = (TileEntityMobSpawner) tile;
+                if (spawner.spawnerLogic instanceof ControlledSpawnerLogic)
+                    ((ControlledSpawnerLogic) spawner.spawnerLogic).incrementSpawnedMobsCount();
+                else
+                    SpawnerControl.LOGGER.warn("A mob spawned by the mod points toward an unmodified spawner, something is extremely wrong here");
+            }
         }
     }
 
@@ -73,7 +99,9 @@ public class SpawnerEventHandler {
                         if (item != null) {
                             int count = split.length >= 3 ? Integer.parseInt(split[2]) : 1;
                             int meta = split.length >= 4 ? Integer.parseInt(split[3]) : 0;
-                            drops.add(new ItemStack(item, count, meta));
+                            // default chance is 1
+                            if (split.length < 5 || event.getWorld().rand.nextFloat() < Double.parseDouble(split[4]))
+                                drops.add(new ItemStack(item, count, meta));
                         }
                     } catch (NumberFormatException ignored) {
                     }

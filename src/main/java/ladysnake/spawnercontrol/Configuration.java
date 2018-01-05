@@ -13,6 +13,9 @@ public class Configuration {
     @Config.Comment("When a spawner has spawned this number of mobs over this lifetime, it will get broken automatically")
     public static int mobThreshold = 100;
 
+    @Config.Comment("If set to true, spawners will count mobs when they are killed rather than when they are spawned")
+    public static boolean incrementOnMobDeath = false;
+
     @Config.Comment("If set to false, spawners will only be disabled when expired, not broken")
     public static boolean breakSpawner = true;
 
@@ -22,7 +25,7 @@ public class Configuration {
     @Config.Comment("The formula used to calculate xp dropped is 'xpDropped + rand(this number) + rand(this number)'")
     public static int randXpVariation = 15;
 
-    @Config.Comment("A list of item ids that a mob spawner drops when broken\nFormat: 'modid:item(:count(:meta))' (count and meta are optional)")
+    @Config.Comment("A list of item ids that a mob spawner drops when broken\nFormat: 'modid:item(:count(:meta(:chance)))' (count, meta and chance are optional)")
     public static String[] itemsDropped = new String[0];
 
     @SubscribeEvent

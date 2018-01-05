@@ -13,6 +13,7 @@ import net.minecraft.util.*;
 import net.minecraft.util.math.AxisAlignedBB;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
+import net.minecraft.world.WorldServer;
 import net.minecraft.world.chunk.storage.AnvilChunkLoader;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
@@ -25,6 +26,9 @@ import java.util.List;
  * Almost the same as the vanilla one, everything is just copied here because all the fields are private and I'm lazy
  */
 public class ControlledSpawnerLogic extends MobSpawnerBaseLogic {
+
+    public static final String NBT_TAG_SPAWNER_POS = "spawnercontrol:spawnerPos";
+
     private TileEntityMobSpawner tileEntityControlledSpawner;
     /**
      * The delay to spawn.
@@ -63,6 +67,7 @@ public class ControlledSpawnerLogic extends MobSpawnerBaseLogic {
     private int spawnedMobsCount;
 
     public ControlledSpawnerLogic(TileEntityMobSpawner tileEntityControlledSpawner) {
+        super();
         this.tileEntityControlledSpawner = tileEntityControlledSpawner;
     }
 
@@ -91,8 +96,6 @@ public class ControlledSpawnerLogic extends MobSpawnerBaseLogic {
     public void updateSpawner() {
         if (!this.isActivated()) {
             this.prevMobRotation = this.mobRotation;
-            if (Configuration.breakSpawner)
-                getSpawnerWorld().setBlockToAir(getSpawnerPosition());
         } else {
             BlockPos blockpos = this.getSpawnerPosition();
 
@@ -110,6 +113,12 @@ public class ControlledSpawnerLogic extends MobSpawnerBaseLogic {
                 this.prevMobRotation = this.mobRotation;
                 this.mobRotation = (this.mobRotation + (double) (1000.0F / ((float) this.spawnDelay + 200.0F))) % 360.0D;
             } else {
+                if (this.spawnedMobsCount >= Configuration.mobThreshold) {
+                    double d3 = (double) ((float) blockpos.getX() + this.getSpawnerWorld().rand.nextFloat());
+                    double d4 = (double) ((float) blockpos.getY() + this.getSpawnerWorld().rand.nextFloat());
+                    double d5 = (double) ((float) blockpos.getZ() + this.getSpawnerWorld().rand.nextFloat());
+                    ((WorldServer) this.getSpawnerWorld()).spawnParticle(EnumParticleTypes.REDSTONE, d3, d4, d5, 3, 0, 0, 0, 0.1);
+                }
                 if (this.spawnDelay == -1) {
                     this.resetTimer();
                 }
@@ -158,16 +167,10 @@ public class ControlledSpawnerLogic extends MobSpawnerBaseLogic {
                             entityliving.spawnExplosionParticle();
                         }
 
+                        entity.getEntityData().setLong(NBT_TAG_SPAWNER_POS, this.getSpawnerPosition().toLong());
 
-                        // Update the mobs spawned count
-                        if (++this.spawnedMobsCount >= Configuration.mobThreshold) {
-                            if (Configuration.breakSpawner)
-                                world.setBlockToAir(getSpawnerPosition());
-                            // stop spawning mobs if we reached the max
-                            return;
-                        }
-
-
+                        // stop spawning mobs if we reached the max
+                        if (incrementSpawnedMobsCount()) return;
 
                         flag = true;
                     }
@@ -178,6 +181,15 @@ public class ControlledSpawnerLogic extends MobSpawnerBaseLogic {
                 }
             }
         }
+    }
+
+    public boolean incrementSpawnedMobsCount() {
+        if (++this.spawnedMobsCount >= Configuration.mobThreshold) {
+            if (Configuration.breakSpawner)
+                this.getSpawnerWorld().setBlockToAir(getSpawnerPosition());
+            return true;
+        }
+        return false;
     }
 
     private void resetTimer() {
@@ -211,7 +223,7 @@ public class ControlledSpawnerLogic extends MobSpawnerBaseLogic {
     }
 
     public void setNextSpawnData(@Nonnull WeightedSpawnerEntity weightedSpawnerEntity) {
-        super.setNextSpawnData(weightedSpawnerEntity);
+        this.spawnData = weightedSpawnerEntity;
 
         if (this.getSpawnerWorld() != null) {
             IBlockState iblockstate = this.getSpawnerWorld().getBlockState(this.getSpawnerPosition());
