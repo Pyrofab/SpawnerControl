@@ -114,6 +114,8 @@ public class ControlledSpawnerLogic extends MobSpawnerBaseLogic {
                 this.mobRotation = (this.mobRotation + (double) (1000.0F / ((float) this.spawnDelay + 200.0F))) % 360.0D;
             } else {
                 if (this.spawnedMobsCount >= Configuration.mobThreshold) {
+                    if (Configuration.breakSpawner)
+                        getSpawnerWorld().setBlockToAir(getSpawnerPosition());
                     double d3 = (double) ((float) blockpos.getX() + this.getSpawnerWorld().rand.nextFloat());
                     double d4 = (double) ((float) blockpos.getY() + this.getSpawnerWorld().rand.nextFloat());
                     double d5 = (double) ((float) blockpos.getZ() + this.getSpawnerWorld().rand.nextFloat());
@@ -170,7 +172,7 @@ public class ControlledSpawnerLogic extends MobSpawnerBaseLogic {
                         entity.getEntityData().setLong(NBT_TAG_SPAWNER_POS, this.getSpawnerPosition().toLong());
 
                         // stop spawning mobs if we reached the max
-                        if (incrementSpawnedMobsCount()) return;
+                        if (!Configuration.incrementOnMobDeath && incrementSpawnedMobsCount()) return;
 
                         flag = true;
                     }

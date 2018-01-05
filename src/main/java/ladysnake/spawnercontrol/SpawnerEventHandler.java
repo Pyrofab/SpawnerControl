@@ -12,14 +12,13 @@ import net.minecraft.util.math.BlockPos;
 import net.minecraftforge.event.AttachCapabilitiesEvent;
 import net.minecraftforge.event.entity.living.LivingDeathEvent;
 import net.minecraftforge.event.world.BlockEvent;
+import net.minecraftforge.fml.common.FMLCommonHandler;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
+import net.minecraftforge.fml.relauncher.Side;
 
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 /**
  * Class handling spawner-related events
@@ -27,11 +26,18 @@ import java.util.Set;
 @Mod.EventBusSubscriber(modid = SpawnerControl.MOD_ID)
 public class SpawnerEventHandler {
 
-    private static Set<TileEntityMobSpawner> spawners = new HashSet<TileEntityMobSpawner>();
+    /**Set containing all mob spawners entities that have been constructed this tick*/
+    private static Set<TileEntityMobSpawner> spawners;
+
+    static {
+        // synchronize the set just in case forge's guess for logical side is wrong
+        spawners = Collections.synchronizedSet(new HashSet<TileEntityMobSpawner>());
+    }
 
     @SubscribeEvent
     public static void onAttachCapabilities(AttachCapabilitiesEvent<TileEntity> event) {
-        if (event.getObject() instanceof TileEntityMobSpawner) {
+        // check the side to avoid adding client tile entities to the set, the world isn't set at this time
+        if (event.getObject() instanceof TileEntityMobSpawner && FMLCommonHandler.instance().getEffectiveSide() == Side.SERVER) {
             //need to wait a tick after construction, as the field will be reassigned
             spawners.add((TileEntityMobSpawner) event.getObject());
         }
@@ -39,15 +45,12 @@ public class SpawnerEventHandler {
 
     @SubscribeEvent
     public static void onTickWorldTick(TickEvent.WorldTickEvent event) {
-        if (event.side.isClient()) return;
         for (Iterator<TileEntityMobSpawner> iterator = spawners.iterator(); iterator.hasNext(); ) {
             TileEntityMobSpawner spawner = iterator.next();
-            if (spawner.getWorld() != null && !spawner.getWorld().isRemote) {
-                MobSpawnerBaseLogic logic = new ControlledSpawnerLogic(spawner);
-                // preserve the spawn information
-                logic.readFromNBT(spawner.spawnerLogic.writeToNBT(new NBTTagCompound()));
-                spawner.spawnerLogic = logic;
-            }
+            MobSpawnerBaseLogic logic = new ControlledSpawnerLogic(spawner);
+            // preserve the spawn information
+            logic.readFromNBT(spawner.spawnerLogic.writeToNBT(new NBTTagCompound()));
+            spawner.spawnerLogic = logic;
             iterator.remove();
         }
     }
@@ -63,6 +66,7 @@ public class SpawnerEventHandler {
                 if (spawner.spawnerLogic instanceof ControlledSpawnerLogic)
                     ((ControlledSpawnerLogic) spawner.spawnerLogic).incrementSpawnedMobsCount();
                 else
+                    // this shouldn't ever happen but let's not have easily avoidable crashes
                     SpawnerControl.LOGGER.warn("A mob spawned by the mod points toward an unmodified spawner, something is extremely wrong here");
             }
         }
