@@ -1,5 +1,7 @@
 package ladysnake.spawnercontrol;
 
+import ladysnake.spawnercontrol.controlledspawner.BlockControlledSpawner;
+import ladysnake.spawnercontrol.controlledspawner.ControlledSpawnerLogic;
 import net.minecraft.block.BlockMobSpawner;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
@@ -37,7 +39,7 @@ public class SpawnerEventHandler {
     @SubscribeEvent
     public static void onAttachCapabilities(AttachCapabilitiesEvent<TileEntity> event) {
         // check the side to avoid adding client tile entities to the set, the world isn't set at this time
-        if (event.getObject() instanceof TileEntityMobSpawner && FMLCommonHandler.instance().getEffectiveSide() == Side.SERVER) {
+        if (Configuration.alterVanillaSpawner && event.getObject() instanceof TileEntityMobSpawner && FMLCommonHandler.instance().getEffectiveSide() == Side.SERVER) {
             //need to wait a tick after construction, as the field will be reassigned
             spawners.add((TileEntityMobSpawner) event.getObject());
         }
@@ -66,8 +68,7 @@ public class SpawnerEventHandler {
                 if (spawner.spawnerLogic instanceof ControlledSpawnerLogic)
                     ((ControlledSpawnerLogic) spawner.spawnerLogic).incrementSpawnedMobsCount();
                 else
-                    // this shouldn't ever happen but let's not have easily avoidable crashes
-                    SpawnerControl.LOGGER.warn("A mob spawned by the mod points toward an unmodified spawner, something is extremely wrong here");
+                    SpawnerControl.LOGGER.warn("A mob spawned by the mod points toward an unmodified spawner, skipping");
             }
         }
     }
@@ -77,7 +78,9 @@ public class SpawnerEventHandler {
      */
     @SubscribeEvent
     public static void onBlockBreak(BlockEvent.BreakEvent event) {
-        if (event.getState().getBlock() instanceof BlockMobSpawner) {
+        if (event.getState().getBlock() instanceof BlockMobSpawner && Configuration.alterVanillaSpawner
+                // drops from the mod's spawner is also handled here
+                || event.getState().getBlock() instanceof BlockControlledSpawner) {
             int xp = Configuration.xpDropped;
             if (Configuration.randXpVariation > 0) {
                 xp += event.getWorld().rand.nextInt(Configuration.randXpVariation)
@@ -92,7 +95,9 @@ public class SpawnerEventHandler {
      */
     @SubscribeEvent
     public static void onBlockHarvestDrops(BlockEvent.HarvestDropsEvent event) {
-        if (event.getHarvester() != null && event.getState().getBlock() instanceof BlockMobSpawner) {
+        if (event.getHarvester() != null && (event.getState().getBlock() instanceof BlockMobSpawner && Configuration.alterVanillaSpawner
+                // drops from the mod's spawner is also handled here
+                || event.getState().getBlock() instanceof BlockControlledSpawner)) {
             List<ItemStack> drops = event.getDrops();
 
             for (String entry : Configuration.itemsDropped) {

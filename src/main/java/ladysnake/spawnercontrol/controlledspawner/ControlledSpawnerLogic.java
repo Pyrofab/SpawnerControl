@@ -1,6 +1,7 @@
-package ladysnake.spawnercontrol;
+package ladysnake.spawnercontrol.controlledspawner;
 
 import com.google.common.collect.Lists;
+import ladysnake.spawnercontrol.Configuration;
 import net.minecraft.block.state.IBlockState;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLiving;
@@ -94,11 +95,20 @@ public class ControlledSpawnerLogic extends MobSpawnerBaseLogic {
 
     @Override
     public void updateSpawner() {
+        BlockPos blockpos = this.getSpawnerPosition();
         if (!this.isActivated()) {
             this.prevMobRotation = this.mobRotation;
+            if (this.spawnedMobsCount >= Configuration.mobThreshold) {
+                if (Configuration.breakSpawner)
+                    getSpawnerWorld().setBlockToAir(getSpawnerPosition());
+                if (!this.getSpawnerWorld().isRemote) {
+                    double d3 = (double) ((float) blockpos.getX() + this.getSpawnerWorld().rand.nextFloat());
+                    double d4 = (double) ((float) blockpos.getY() + this.getSpawnerWorld().rand.nextFloat());
+                    double d5 = (double) ((float) blockpos.getZ() + this.getSpawnerWorld().rand.nextFloat());
+                    ((WorldServer) this.getSpawnerWorld()).spawnParticle(EnumParticleTypes.SMOKE_LARGE, d3, d4, d5, 3, 0, 0, 0, 0.0);
+                }
+            }
         } else {
-            BlockPos blockpos = this.getSpawnerPosition();
-
             if (this.getSpawnerWorld().isRemote) {
                 double d3 = (double) ((float) blockpos.getX() + this.getSpawnerWorld().rand.nextFloat());
                 double d4 = (double) ((float) blockpos.getY() + this.getSpawnerWorld().rand.nextFloat());
@@ -113,14 +123,6 @@ public class ControlledSpawnerLogic extends MobSpawnerBaseLogic {
                 this.prevMobRotation = this.mobRotation;
                 this.mobRotation = (this.mobRotation + (double) (1000.0F / ((float) this.spawnDelay + 200.0F))) % 360.0D;
             } else {
-                if (this.spawnedMobsCount >= Configuration.mobThreshold) {
-                    if (Configuration.breakSpawner)
-                        getSpawnerWorld().setBlockToAir(getSpawnerPosition());
-                    double d3 = (double) ((float) blockpos.getX() + this.getSpawnerWorld().rand.nextFloat());
-                    double d4 = (double) ((float) blockpos.getY() + this.getSpawnerWorld().rand.nextFloat());
-                    double d5 = (double) ((float) blockpos.getZ() + this.getSpawnerWorld().rand.nextFloat());
-                    ((WorldServer) this.getSpawnerWorld()).spawnParticle(EnumParticleTypes.REDSTONE, d3, d4, d5, 3, 0, 0, 0, 0.1);
-                }
                 if (this.spawnDelay == -1) {
                     this.resetTimer();
                 }
@@ -191,6 +193,8 @@ public class ControlledSpawnerLogic extends MobSpawnerBaseLogic {
                 this.getSpawnerWorld().setBlockToAir(getSpawnerPosition());
             return true;
         }
+        this.minSpawnDelay *= Configuration.spawnRateModifier;
+        this.maxSpawnDelay *= Configuration.spawnRateModifier;
         return false;
     }
 
