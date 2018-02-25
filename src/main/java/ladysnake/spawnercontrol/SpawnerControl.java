@@ -22,30 +22,33 @@ import org.apache.logging.log4j.Logger;
 @Mod(
         modid = SpawnerControl.MOD_ID,
         name = SpawnerControl.MOD_NAME,
-        version = SpawnerControl.VERSION
+        version = SpawnerControl.VERSION,
+        acceptedMinecraftVersions = SpawnerControl.ACCEPTED_VERSIONS
 )
 public class SpawnerControl {
 
-    public static final String MOD_ID = "spawnercontrol";
-    public static final String MOD_NAME = "SpawnerControl";
-    public static final String VERSION = "1.0";
+    static final String MOD_ID = "spawnercontrol";
+    static final String MOD_NAME = "Mob Spawner Control";
+    static final String VERSION = "@VERSION@";
+    static final String ACCEPTED_VERSIONS = "[1.12, 1.13)";
 
-    public static Logger LOGGER;
+    static Logger LOGGER;
 
     @Mod.EventHandler
     public void preInit(FMLPreInitializationEvent event) {
         LOGGER = event.getModLog();
-        GameRegistry.registerTileEntity(TileEntityControlledSpawner.class, "spawnercontrol:controlled_spawner");
+        if (Configuration.registerCustomSpawner)
+            GameRegistry.registerTileEntity(TileEntityControlledSpawner.class, "spawnercontrol:controlled_spawner");
     }
 
     @GameRegistry.ObjectHolder(MOD_ID)
     public static class ModBlocks {
-        public static final Block CONTROLLED_SPAWNER = Blocks.AIR;
+        static final Block CONTROLLED_SPAWNER = Blocks.AIR;
     }
 
     @GameRegistry.ObjectHolder(MOD_ID)
     public static class ModItems {
-        public static final Item CONTROLLED_SPAWNER = Items.AIR;
+        static final Item CONTROLLED_SPAWNER = Items.AIR;
     }
 
     @Mod.EventBusSubscriber
@@ -53,18 +56,21 @@ public class SpawnerControl {
 
         @SubscribeEvent
         public static void onBlockRegister(RegistryEvent.Register<Block> event) {
-            event.getRegistry().register(new BlockControlledSpawner().setRegistryName("controlled_spawner").setUnlocalizedName("spawnercontrol.controlled_spawner"));
+            if (Configuration.registerCustomSpawner)
+                event.getRegistry().register(new BlockControlledSpawner().setRegistryName("controlled_spawner").setUnlocalizedName("spawnercontrol.controlled_spawner"));
         }
 
         @SubscribeEvent
         public static void onItemRegister(RegistryEvent.Register<Item> event) {
-            event.getRegistry().register(new ItemBlock(ModBlocks.CONTROLLED_SPAWNER).setRegistryName("controlled_spawner").setUnlocalizedName("spawnercontrol.controlled_spawner"));
+            if (Configuration.registerCustomSpawner)
+                event.getRegistry().register(new ItemBlock(ModBlocks.CONTROLLED_SPAWNER).setRegistryName("controlled_spawner").setUnlocalizedName("spawnercontrol.controlled_spawner"));
         }
 
         @SideOnly(Side.CLIENT)
         @SubscribeEvent
         public void registerRenders(ModelRegistryEvent event) {
-            ModelLoader.setCustomModelResourceLocation(ModItems.CONTROLLED_SPAWNER, 0, new ModelResourceLocation("spawnercontrol:controlled_spawner"));
+            if (Configuration.registerCustomSpawner)
+                ModelLoader.setCustomModelResourceLocation(ModItems.CONTROLLED_SPAWNER, 0, new ModelResourceLocation("mob_spawner", "inventory"));
         }
 
     }

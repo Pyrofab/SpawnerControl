@@ -6,9 +6,14 @@ import net.minecraftforge.fml.client.event.ConfigChangedEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 
+@SuppressWarnings("WeakerAccess")
 @Config(modid=SpawnerControl.MOD_ID)
 @Mod.EventBusSubscriber(modid = SpawnerControl.MOD_ID)
 public class Configuration {
+
+    @Config.RequiresMcRestart
+    @Config.Comment("If set to false, this mod won't register its own spawner, making it possible to use serverside with vanilla clients.")
+    public static boolean registerCustomSpawner = true;
 
     @Config.Comment("If set to false, vanilla spawners won't be affected by the mod. This mod's own spawner will be the only one affected by this config")
     public static boolean alterVanillaSpawner = true;

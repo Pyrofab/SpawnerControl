@@ -39,6 +39,7 @@ public class ControlledSpawnerLogic extends MobSpawnerBaseLogic {
      * List of potential entities to spawn
      */
     private final List<WeightedSpawnerEntity> potentialSpawns = Lists.newArrayList();
+    // Don't ever rename that field or Nut will be angery
     private WeightedSpawnerEntity spawnData = new WeightedSpawnerEntity();
     /**
      * The rotation of the mob inside the mob spawner
@@ -218,7 +219,6 @@ public class ControlledSpawnerLogic extends MobSpawnerBaseLogic {
         tileEntityControlledSpawner.getWorld().addBlockEvent(tileEntityControlledSpawner.getPos(), Blocks.MOB_SPAWNER, id, 0);
     }
 
-    @Nonnull
     public World getSpawnerWorld() {
         return tileEntityControlledSpawner.getWorld();
     }
