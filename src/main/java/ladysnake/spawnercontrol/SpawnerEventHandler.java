@@ -1,6 +1,7 @@
 package ladysnake.spawnercontrol;
 
 import ladysnake.spawnercontrol.controlledspawner.BlockControlledSpawner;
+import ladysnake.spawnercontrol.controlledspawner.CapabilityControllableSpawner;
 import ladysnake.spawnercontrol.controlledspawner.ControlledSpawnerLogic;
 import net.minecraft.block.BlockMobSpawner;
 import net.minecraft.item.Item;
@@ -28,7 +29,7 @@ import java.util.*;
 @Mod.EventBusSubscriber(modid = SpawnerControl.MOD_ID)
 public class SpawnerEventHandler {
 
-    /**Set containing all mob spawners entities that have been constructed this tick*/
+    /**Set containing all mob spawner tile entities that have been constructed this tick*/
     private static Set<TileEntityMobSpawner> spawners;
 
     static {
@@ -40,8 +41,10 @@ public class SpawnerEventHandler {
     public static void onAttachCapabilities(AttachCapabilitiesEvent<TileEntity> event) {
         // check the side to avoid adding client tile entities to the set, the world isn't set at this time
         if (Configuration.alterVanillaSpawner && event.getObject() instanceof TileEntityMobSpawner && FMLCommonHandler.instance().getEffectiveSide() == Side.SERVER) {
+            TileEntityMobSpawner spawner = (TileEntityMobSpawner) event.getObject();
             //need to wait a tick after construction, as the field will be reassigned
-            spawners.add((TileEntityMobSpawner) event.getObject());
+            spawners.add(spawner);
+            event.addCapability(CapabilityControllableSpawner.CAPABILITY_KEY, new CapabilityControllableSpawner.Provider(spawner));
         }
     }
 
@@ -65,10 +68,7 @@ public class SpawnerEventHandler {
             TileEntity tile = event.getEntityLiving().getEntityWorld().getTileEntity(BlockPos.fromLong(spawnerPos));
             if (tile instanceof TileEntityMobSpawner) {
                 TileEntityMobSpawner spawner = (TileEntityMobSpawner) tile;
-                if (spawner.spawnerLogic instanceof ControlledSpawnerLogic)
-                    ((ControlledSpawnerLogic) spawner.spawnerLogic).incrementSpawnedMobsCount();
-                else
-                    SpawnerControl.LOGGER.warn("A mob spawned by the mod points toward an unmodified spawner, skipping");
+                CapabilityControllableSpawner.getHandler(spawner).incrementSpawnedMobsCount();
             }
         }
     }

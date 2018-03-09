@@ -1,6 +1,8 @@
 package ladysnake.spawnercontrol;
 
 import ladysnake.spawnercontrol.controlledspawner.BlockControlledSpawner;
+import ladysnake.spawnercontrol.controlledspawner.CapabilityControllableSpawner;
+import ladysnake.spawnercontrol.controlledspawner.IControllableSpawner;
 import ladysnake.spawnercontrol.controlledspawner.TileEntityControlledSpawner;
 import net.minecraft.block.Block;
 import net.minecraft.client.renderer.block.model.ModelResourceLocation;
@@ -10,6 +12,7 @@ import net.minecraft.item.Item;
 import net.minecraft.item.ItemBlock;
 import net.minecraftforge.client.event.ModelRegistryEvent;
 import net.minecraftforge.client.model.ModelLoader;
+import net.minecraftforge.common.capabilities.CapabilityManager;
 import net.minecraftforge.event.RegistryEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
@@ -27,16 +30,18 @@ import org.apache.logging.log4j.Logger;
 )
 public class SpawnerControl {
 
-    static final String MOD_ID = "spawnercontrol";
+    public static final String MOD_ID = "spawnercontrol";
     static final String MOD_NAME = "Mob Spawner Control";
     static final String VERSION = "@VERSION@";
     static final String ACCEPTED_VERSIONS = "[1.12, 1.13)";
 
-    static Logger LOGGER;
+    public static Logger LOGGER;
 
     @Mod.EventHandler
     public void preInit(FMLPreInitializationEvent event) {
         LOGGER = event.getModLog();
+        // register the capability storing extra spawner information
+        CapabilityManager.INSTANCE.register(IControllableSpawner.class, new CapabilityControllableSpawner.Storage(), CapabilityControllableSpawner.DefaultControllableSpawner::new);
         if (Configuration.registerCustomSpawner)
             GameRegistry.registerTileEntity(TileEntityControlledSpawner.class, "spawnercontrol:controlled_spawner");
     }
