@@ -1,5 +1,8 @@
 package ladysnake.spawnercontrol.controlledspawner;
 
+/**
+ * Capability used to store additional spawner information
+ */
 public interface IControllableSpawner {
 
     void setSpawnedMobsCount(int mobCount);

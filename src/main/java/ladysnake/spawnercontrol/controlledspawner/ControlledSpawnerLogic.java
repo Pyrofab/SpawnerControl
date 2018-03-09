@@ -18,6 +18,12 @@ import net.minecraft.world.chunk.storage.AnvilChunkLoader;
 
 import javax.annotation.Nonnull;
 
+/**
+ * Copy of the vanilla logic to insert dedicated hooks without ASM <br/>
+ * Additional information cannot be stored here as it will be erased on world load, use the capability instead
+ * @see IControllableSpawner
+ * @see CapabilityControllableSpawner
+ */
 public class ControlledSpawnerLogic extends MobSpawnerBaseLogic {
 
     public static final String NBT_TAG_SPAWNER_POS = SpawnerControl.MOD_ID + ":spawnerPos";
