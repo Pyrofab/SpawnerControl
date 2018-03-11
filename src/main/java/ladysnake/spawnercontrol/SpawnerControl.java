@@ -26,7 +26,8 @@ import org.apache.logging.log4j.Logger;
         modid = SpawnerControl.MOD_ID,
         name = SpawnerControl.MOD_NAME,
         version = SpawnerControl.VERSION,
-        acceptedMinecraftVersions = SpawnerControl.ACCEPTED_VERSIONS
+        acceptedMinecraftVersions = SpawnerControl.ACCEPTED_VERSIONS,
+        guiFactory = "ladysnake.spawnercontrol.client.MSCConfigFactory"
 )
 public class SpawnerControl {
 
@@ -48,12 +49,12 @@ public class SpawnerControl {
 
     @GameRegistry.ObjectHolder(MOD_ID)
     public static class ModBlocks {
-        static final Block CONTROLLED_SPAWNER = Blocks.AIR;
+        public static final Block CONTROLLED_SPAWNER = Blocks.AIR;
     }
 
     @GameRegistry.ObjectHolder(MOD_ID)
     public static class ModItems {
-        static final Item CONTROLLED_SPAWNER = Items.AIR;
+        public static final Item CONTROLLED_SPAWNER = Items.AIR;
     }
 
     @Mod.EventBusSubscriber
