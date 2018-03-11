@@ -112,7 +112,7 @@ public class ControlledSpawnerLogic extends MobSpawnerBaseLogic {
                     EntityLiving entityliving = entity instanceof EntityLiving ? (EntityLiving) entity : null;
                     entity.setLocationAndAngles(entity.posX, entity.posY, entity.posZ, world.rand.nextFloat() * 360.0F, 0.0F);
 
-                    if (entityliving == null || net.minecraftforge.event.ForgeEventFactory.canEntitySpawnSpawner(entityliving, getSpawnerWorld(), (float) entity.posX, (float) entity.posY, (float) entity.posZ)) {
+                    if (entityliving == null || CheckSpawnerSpawnEvent.canEntitySpawnSpawner(entityliving, getSpawnerWorld(), (float) entity.posX, (float) entity.posY, (float) entity.posZ, tileEntityControlledSpawner)) {
                         if (this.spawnData.getNbt().getSize() == 1 && this.spawnData.getNbt().hasKey("id", 8) && entity instanceof EntityLiving) {
                             if (!net.minecraftforge.event.ForgeEventFactory.doSpecialSpawn(entityliving, this.getSpawnerWorld(), (float) entity.posX, (float) entity.posY, (float) entity.posZ))
                                 ((EntityLiving) entity).onInitialSpawn(world.getDifficultyForLocation(new BlockPos(entity)), null);
@@ -156,7 +156,8 @@ public class ControlledSpawnerLogic extends MobSpawnerBaseLogic {
         tileEntityControlledSpawner.getWorld().addBlockEvent(tileEntityControlledSpawner.getPos(), Blocks.MOB_SPAWNER, id, 0);
     }
 
-    @Nonnull
+    // this can actually return null on world load
+    @SuppressWarnings("NullableProblems")
     public World getSpawnerWorld() {
         return tileEntityControlledSpawner.getWorld();
     }

@@ -2,8 +2,11 @@ package ladysnake.spawnercontrol;
 
 import ladysnake.spawnercontrol.controlledspawner.BlockControlledSpawner;
 import ladysnake.spawnercontrol.controlledspawner.CapabilityControllableSpawner;
+import ladysnake.spawnercontrol.controlledspawner.CheckSpawnerSpawnEvent;
 import ladysnake.spawnercontrol.controlledspawner.ControlledSpawnerLogic;
 import net.minecraft.block.BlockMobSpawner;
+import net.minecraft.entity.EntityLiving;
+import net.minecraft.entity.monster.IMob;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
@@ -17,6 +20,8 @@ import net.minecraftforge.event.entity.living.LivingDeathEvent;
 import net.minecraftforge.event.world.BlockEvent;
 import net.minecraftforge.fml.common.FMLCommonHandler;
 import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.common.eventhandler.Event;
+import net.minecraftforge.fml.common.eventhandler.EventPriority;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
 import net.minecraftforge.fml.relauncher.Side;
@@ -40,10 +45,12 @@ public class SpawnerEventHandler {
     @SubscribeEvent
     public static void onAttachCapabilities(AttachCapabilitiesEvent<TileEntity> event) {
         // check the side to avoid adding client tile entities to the set, the world isn't set at this time
-        if (Configuration.alterVanillaSpawner && event.getObject() instanceof TileEntityMobSpawner && FMLCommonHandler.instance().getEffectiveSide() == Side.SERVER) {
+        if (event.getObject() instanceof TileEntityMobSpawner) {
             TileEntityMobSpawner spawner = (TileEntityMobSpawner) event.getObject();
-            //need to wait a tick after construction, as the field will be reassigned
-            spawners.add(spawner);
+            if (Configuration.alterVanillaSpawner && FMLCommonHandler.instance().getEffectiveSide() == Side.SERVER) {
+                //need to wait a tick after construction, as the field will be reassigned
+                spawners.add(spawner);
+            }
             event.addCapability(CapabilityControllableSpawner.CAPABILITY_KEY, new CapabilityControllableSpawner.Provider(spawner));
         }
     }
@@ -57,6 +64,27 @@ public class SpawnerEventHandler {
             logic.readFromNBT(spawner.spawnerLogic.writeToNBT(new NBTTagCompound()));
             spawner.spawnerLogic = logic;
             iterator.remove();
+        }
+    }
+
+    /**
+     * Runs most of the logic associated with {@link Configuration.SpawnConditions}
+     */
+    // We use our custom event to filter out unaffected spawners
+    @SubscribeEvent(priority = EventPriority.LOWEST)
+    public static void onCheckSpawnerSpawn(CheckSpawnerSpawnEvent event) {
+        if (event.getResult() == Event.Result.DEFAULT) {
+            EntityLiving spawned = (EntityLiving) event.getEntityLiving();
+            // keep the collision check because mobs spawning in walls is not good
+            boolean canSpawn = spawned.isNotColliding();
+
+            // Tweaks spawners to prevent light from disabling spawns, except when the entity can see the sun
+            if (Configuration.spawnConditions.forceSpawnerMobSpawns && event.getEntity() instanceof IMob) {
+                if (Configuration.spawnConditions.checkSunlight)
+                    canSpawn &= !(event.getWorld().canSeeSky(new BlockPos(spawned)) && event.getWorld().isDaytime());
+            } else if (!Configuration.spawnConditions.forceSpawnerAllSpawns)
+                return; // this entity is not affected, do not interfere
+            event.setResult(canSpawn ? Event.Result.ALLOW : Event.Result.DENY);
         }
     }
 
