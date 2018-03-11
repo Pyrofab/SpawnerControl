@@ -15,6 +15,7 @@ public class CheckSpawnerSpawnEvent extends LivingSpawnEvent.CheckSpawn {
 
     public CheckSpawnerSpawnEvent(EntityLiving entity, World world, float x, float y, float z, TileEntityMobSpawner spawner) {
         super(entity, world, x, y, z, true);
+//        super(entity, world, x, y, z);    // 1.11.2 constructor
         this.spawner = spawner;
     }
 

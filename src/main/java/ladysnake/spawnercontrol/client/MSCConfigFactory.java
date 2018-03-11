@@ -28,4 +28,13 @@ public class MSCConfigFactory implements IModGuiFactory {
     public Set<RuntimeOptionCategoryElement> runtimeGuiCategories() {
         return null;
     }
+
+    // 1.11.2 compat
+//    public RuntimeOptionGuiHandler getHandlerFor(RuntimeOptionCategoryElement element) {
+//        return null;
+//    }
+//
+//    public Class<? extends GuiScreen> mainConfigGuiClass() {
+//        return MSCGuiConfig.class;
+//    }
 }
