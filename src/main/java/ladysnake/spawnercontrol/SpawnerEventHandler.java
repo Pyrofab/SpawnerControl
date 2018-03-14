@@ -1,9 +1,9 @@
 package ladysnake.spawnercontrol;
 
-import ladysnake.spawnercontrol.controlledspawner.BlockControlledSpawner;
-import ladysnake.spawnercontrol.controlledspawner.CapabilityControllableSpawner;
-import ladysnake.spawnercontrol.controlledspawner.CheckSpawnerSpawnEvent;
-import ladysnake.spawnercontrol.controlledspawner.ControlledSpawnerLogic;
+import ladysnake.spawnercontrol.config.MSCConfig;
+import ladysnake.spawnercontrol.config.SpawnerConfig;
+import ladysnake.spawnercontrol.controlledspawner.*;
+import net.minecraft.block.Block;
 import net.minecraft.block.BlockMobSpawner;
 import net.minecraft.entity.EntityLiving;
 import net.minecraft.entity.monster.IMob;
@@ -47,11 +47,12 @@ public class SpawnerEventHandler {
         // check the side to avoid adding client tile entities to the set, the world isn't set at this time
         if (event.getObject() instanceof TileEntityMobSpawner) {
             TileEntityMobSpawner spawner = (TileEntityMobSpawner) event.getObject();
-            if (Configuration.alterVanillaSpawner && FMLCommonHandler.instance().getEffectiveSide() == Side.SERVER) {
+            if (MSCConfig.alterVanillaSpawner && FMLCommonHandler.instance().getEffectiveSide() == Side.SERVER) {
                 //need to wait a tick after construction, as the field will be reassigned
                 spawners.add(spawner);
             }
-            event.addCapability(CapabilityControllableSpawner.CAPABILITY_KEY, new CapabilityControllableSpawner.Provider(spawner));
+            if (!(spawner instanceof TileEntityControlledSpawner)) // custom spawners have their own handler
+                event.addCapability(CapabilityControllableSpawner.CAPABILITY_KEY, new CapabilityControllableSpawner.Provider(spawner));
         }
     }
 
@@ -68,7 +69,7 @@ public class SpawnerEventHandler {
     }
 
     /**
-     * Runs most of the logic associated with {@link Configuration.SpawnConditions}
+     * Runs most of the logic associated with {@link SpawnerConfig.SpawnConditions}
      */
     // We use our custom event to filter out unaffected spawners
     @SubscribeEvent(priority = EventPriority.LOWEST)
@@ -78,11 +79,12 @@ public class SpawnerEventHandler {
             // keep the collision check because mobs spawning in walls is not good
             boolean canSpawn = spawned.isNotColliding();
 
+            SpawnerConfig cfg = CapabilityControllableSpawner.getHandler(event.getSpawner()).getConfig();
             // Tweaks spawners to prevent light from disabling spawns, except when the entity can see the sun
-            if (Configuration.spawnConditions.forceSpawnerMobSpawns && event.getEntity() instanceof IMob) {
-                if (Configuration.spawnConditions.checkSunlight)
+            if (cfg.spawnConditions.forceSpawnerMobSpawns && event.getEntity() instanceof IMob) {
+                if (cfg.spawnConditions.checkSunlight)
                     canSpawn &= !(event.getWorld().canSeeSky(new BlockPos(spawned)) && event.getWorld().isDaytime());
-            } else if (!Configuration.spawnConditions.forceSpawnerAllSpawns)
+            } else if (!cfg.spawnConditions.forceSpawnerAllSpawns)
                 return; // this entity is not affected, do not interfere
             event.setResult(canSpawn ? Event.Result.ALLOW : Event.Result.DENY);
         }
@@ -90,45 +92,54 @@ public class SpawnerEventHandler {
 
     @SubscribeEvent
     public static void onLivingDeath(LivingDeathEvent event) {
-        if (!Configuration.incrementOnMobDeath) return;
         long spawnerPos = event.getEntityLiving().getEntityData().getLong(ControlledSpawnerLogic.NBT_TAG_SPAWNER_POS);
         if (spawnerPos != 0) {
             TileEntity tile = event.getEntityLiving().getEntityWorld().getTileEntity(BlockPos.fromLong(spawnerPos));
             if (tile instanceof TileEntityMobSpawner) {
                 TileEntityMobSpawner spawner = (TileEntityMobSpawner) tile;
-                CapabilityControllableSpawner.getHandler(spawner).incrementSpawnedMobsCount();
+                IControllableSpawner handler = CapabilityControllableSpawner.getHandler(spawner);
+                if (handler.getConfig().incrementOnMobDeath)
+                    handler.incrementSpawnedMobsCount();
             }
         }
     }
 
     /**
-     * Changes the amount of experience dropped by a spawner when broken
+     * Changes the amount of experience dropped by a spawner when broken.
+     * Drops from the mod's spawner are also handled here
      */
     @SubscribeEvent
     public static void onBlockBreak(BlockEvent.BreakEvent event) {
-        if (event.getState().getBlock() instanceof BlockMobSpawner && Configuration.alterVanillaSpawner
-                // drops from the mod's spawner is also handled here
-                || event.getState().getBlock() instanceof BlockControlledSpawner) {
-            int xp = Configuration.xpDropped;
-            if (Configuration.randXpVariation > 0) {
-                xp += event.getWorld().rand.nextInt(Configuration.randXpVariation)
-                        + event.getWorld().rand.nextInt(Configuration.randXpVariation);
+        SpawnerConfig cfg = SpawnerUtil.getConfig(event.getWorld(), event.getPos());
+        if (cfg != null) {
+            int xp = cfg.xpDropped;
+            if (cfg.randXpVariation > 0) {
+                xp += event.getWorld().rand.nextInt(cfg.randXpVariation)
+                        + event.getWorld().rand.nextInt(cfg.randXpVariation);
             }
             event.setExpToDrop(xp);
         }
     }
 
     /**
-     * Adds items specified in the config to the spawner's drops
+     * Adds items specified in the config to the spawner's drops.
+     * Drops from this mod's own spawner are also handled here for convenience.
      */
     @SubscribeEvent
     public static void onBlockHarvestDrops(BlockEvent.HarvestDropsEvent event) {
-        if (event.getHarvester() != null && (event.getState().getBlock() instanceof BlockMobSpawner && Configuration.alterVanillaSpawner
-                // drops from the mod's spawner is also handled here
-                || event.getState().getBlock() instanceof BlockControlledSpawner)) {
+        if (event.getHarvester() != null) {
+            SpawnerConfig cfg;
+            // need to use the block as the tile entity is already gone
+            Block block = event.getState().getBlock();
+            if (block instanceof BlockControlledSpawner)
+                cfg = ((BlockControlledSpawner) block).getConfig();
+            else if(block instanceof BlockMobSpawner && MSCConfig.alterVanillaSpawner)
+                cfg = MSCConfig.vanillaSpawnerConfig;
+            else return;
+
             List<ItemStack> drops = event.getDrops();
 
-            for (String entry : Configuration.itemsDropped) {
+            for (String entry : cfg.itemsDropped) {
                 String[] split = entry.split(":");
                 if (split.length > 1) {
                     Item item = Item.REGISTRY.getObject(new ResourceLocation(split[0], split[1]));

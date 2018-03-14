@@ -1,7 +1,8 @@
 package ladysnake.spawnercontrol.controlledspawner;
 
-import ladysnake.spawnercontrol.Configuration;
 import ladysnake.spawnercontrol.SpawnerControl;
+import ladysnake.spawnercontrol.config.MSCConfig;
+import ladysnake.spawnercontrol.config.SpawnerConfig;
 import net.minecraft.nbt.NBTBase;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.tileentity.TileEntityMobSpawner;
@@ -44,13 +45,14 @@ public class CapabilityControllableSpawner {
 
         @Override
         public boolean incrementSpawnedMobsCount() {
-            if(++this.spawnedMobsCount >= Configuration.mobThreshold) {
-                if (Configuration.breakSpawner)
+            SpawnerConfig cfg = getConfig();
+            if(++this.spawnedMobsCount >= cfg.mobThreshold) {
+                if (cfg.breakSpawner)
                     spawner.getWorld().setBlockToAir(spawner.getPos());
                 return true;
             }
             if (spawner.spawnerLogic instanceof ControlledSpawnerLogic)
-                ((ControlledSpawnerLogic) spawner.spawnerLogic).adjustDelayAfterSpawn();
+                ((ControlledSpawnerLogic) spawner.spawnerLogic).adjustDelayAfterSpawn(cfg.spawnRateModifier);
             else
                 SpawnerControl.LOGGER.warn("A mob spawned by the mod points toward an unmodified spawner, skipping");
             return false;
@@ -63,7 +65,13 @@ public class CapabilityControllableSpawner {
 
         @Override
         public boolean canSpawn() {
-            return this.spawnedMobsCount < Configuration.mobThreshold;
+            return this.spawnedMobsCount < getConfig().mobThreshold;
+        }
+
+        @Nonnull
+        @Override
+        public SpawnerConfig getConfig() {
+            return  MSCConfig.vanillaSpawnerConfig;
         }
     }
 

@@ -1,6 +1,5 @@
 package ladysnake.spawnercontrol.controlledspawner;
 
-import ladysnake.spawnercontrol.Configuration;
 import ladysnake.spawnercontrol.SpawnerControl;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLiving;
@@ -51,8 +50,9 @@ public class ControlledSpawnerLogic extends MobSpawnerBaseLogic {
         if (!this.isActivated()) {
             this.prevMobRotation = this.mobRotation;
             // Patch: Handle obsolete spawner
-            if (!CapabilityControllableSpawner.getHandler(tileEntityControlledSpawner).canSpawn()) {
-                if (Configuration.breakSpawner)
+            IControllableSpawner handler = CapabilityControllableSpawner.getHandler(tileEntityControlledSpawner);
+            if (!handler.canSpawn()) {
+                if (handler.getConfig().breakSpawner)
                     getSpawnerWorld().setBlockToAir(getSpawnerPosition());
                 if (!this.getSpawnerWorld().isRemote) {
                     double d3 = (double) ((float) blockpos.getX() + this.getSpawnerWorld().rand.nextFloat());
@@ -128,8 +128,9 @@ public class ControlledSpawnerLogic extends MobSpawnerBaseLogic {
                         entity.getEntityData().setLong(NBT_TAG_SPAWNER_POS, this.getSpawnerPosition().toLong());
 
                         // Patch: stop spawning mobs if we reached the max
-                        if (!Configuration.incrementOnMobDeath &&
-                                CapabilityControllableSpawner.getHandler(tileEntityControlledSpawner).incrementSpawnedMobsCount())
+                        IControllableSpawner handler = CapabilityControllableSpawner.getHandler(tileEntityControlledSpawner);
+                        if (!handler.getConfig().incrementOnMobDeath &&
+                                handler.incrementSpawnedMobsCount())
                             return;
                         // Patch end
 
@@ -147,9 +148,9 @@ public class ControlledSpawnerLogic extends MobSpawnerBaseLogic {
     /**
      * Should be called after every spawn to tweak the cooldown according to the config
      */
-    public void adjustDelayAfterSpawn() {
-        this.minSpawnDelay *= Configuration.spawnRateModifier;
-        this.maxSpawnDelay *= Configuration.spawnRateModifier;
+    public void adjustDelayAfterSpawn(double spawnRateModifier) {
+        this.minSpawnDelay *= spawnRateModifier;
+        this.maxSpawnDelay *= spawnRateModifier;
     }
 
     public void broadcastEvent(int id) {

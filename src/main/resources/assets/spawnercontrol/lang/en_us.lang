@@ -1,1 +1,3 @@
-tile.spawnercontrol.controlled_spawner.name=Controlled Spawner
+tile.msc.controlled_spawner.name=%s Spawner
+itemGroup.spawnercontrol=Spawner Control
+tile.msc.za_warudo.name=時を止まれ

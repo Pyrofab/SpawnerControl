@@ -1,5 +1,7 @@
 package ladysnake.spawnercontrol.controlledspawner;
 
+import ladysnake.spawnercontrol.config.SpawnerConfig;
+
 /**
  * Capability used to store additional spawner information
  */
@@ -17,4 +19,6 @@ public interface IControllableSpawner {
     int getSpawnedMobsCount();
 
     boolean canSpawn();
+
+    SpawnerConfig getConfig();
 }

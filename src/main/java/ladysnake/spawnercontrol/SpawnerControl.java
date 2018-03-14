@@ -1,15 +1,19 @@
 package ladysnake.spawnercontrol;
 
-import ladysnake.spawnercontrol.controlledspawner.BlockControlledSpawner;
+import ladysnake.spawnercontrol.config.CustomSpawnersConfig;
+import ladysnake.spawnercontrol.config.MSCConfig;
+import ladysnake.spawnercontrol.config.SpawnerConfigHolder;
 import ladysnake.spawnercontrol.controlledspawner.CapabilityControllableSpawner;
 import ladysnake.spawnercontrol.controlledspawner.IControllableSpawner;
 import ladysnake.spawnercontrol.controlledspawner.TileEntityControlledSpawner;
 import net.minecraft.block.Block;
+import net.minecraft.block.state.IBlockState;
 import net.minecraft.client.renderer.block.model.ModelResourceLocation;
+import net.minecraft.client.renderer.block.statemap.StateMapperBase;
+import net.minecraft.creativetab.CreativeTabs;
 import net.minecraft.init.Blocks;
-import net.minecraft.init.Items;
 import net.minecraft.item.Item;
-import net.minecraft.item.ItemBlock;
+import net.minecraft.item.ItemStack;
 import net.minecraftforge.client.event.ModelRegistryEvent;
 import net.minecraftforge.client.model.ModelLoader;
 import net.minecraftforge.common.capabilities.CapabilityManager;
@@ -21,6 +25,8 @@ import net.minecraftforge.fml.common.registry.GameRegistry;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 import org.apache.logging.log4j.Logger;
+
+import javax.annotation.Nonnull;
 
 @Mod(
         modid = SpawnerControl.MOD_ID,
@@ -37,24 +43,28 @@ public class SpawnerControl {
     static final String ACCEPTED_VERSIONS = "[1.12, 1.13)";
 
     public static Logger LOGGER;
+    public static CreativeTabs creativeTab;
 
     @Mod.EventHandler
     public void preInit(FMLPreInitializationEvent event) {
         LOGGER = event.getModLog();
+        CustomSpawnersConfig.configDir = event.getModConfigurationDirectory();
+        MSCConfig.portConfig();
+        CustomSpawnersConfig.initCustomConfig();
         // register the capability storing extra spawner information
         CapabilityManager.INSTANCE.register(IControllableSpawner.class, new CapabilityControllableSpawner.Storage(), CapabilityControllableSpawner.DefaultControllableSpawner::new);
-        if (Configuration.registerCustomSpawner)
+        // No need to register a tile entity that's not used anywhere
+        if (MSCConfig.customSpawners.length > 0)
             GameRegistry.registerTileEntity(TileEntityControlledSpawner.class, "spawnercontrol:controlled_spawner");
-    }
-
-    @GameRegistry.ObjectHolder(MOD_ID)
-    public static class ModBlocks {
-        public static final Block CONTROLLED_SPAWNER = Blocks.AIR;
-    }
-
-    @GameRegistry.ObjectHolder(MOD_ID)
-    public static class ModItems {
-        public static final Item CONTROLLED_SPAWNER = Items.AIR;
+        if (MSCConfig.makeCreativeTab) {
+            creativeTab = new CreativeTabs(MOD_ID) {
+                @Nonnull
+                @Override
+                public ItemStack getTabIconItem() {
+                    return new ItemStack(Blocks.MOB_SPAWNER);
+                }
+            };
+        }
     }
 
     @Mod.EventBusSubscriber
@@ -62,21 +72,43 @@ public class SpawnerControl {
 
         @SubscribeEvent
         public static void onBlockRegister(RegistryEvent.Register<Block> event) {
-            if (Configuration.registerCustomSpawner)
-                event.getRegistry().register(new BlockControlledSpawner().setRegistryName("controlled_spawner").setUnlocalizedName("spawnercontrol.controlled_spawner"));
+            CustomSpawnersConfig.getCustomSpawnerConfigs().stream()
+                    .map(SpawnerConfigHolder::createBlock)
+                    .forEach(event.getRegistry()::register);
         }
 
         @SubscribeEvent
         public static void onItemRegister(RegistryEvent.Register<Item> event) {
-            if (Configuration.registerCustomSpawner)
-                event.getRegistry().register(new ItemBlock(ModBlocks.CONTROLLED_SPAWNER).setRegistryName("controlled_spawner").setUnlocalizedName("spawnercontrol.controlled_spawner"));
+            CustomSpawnersConfig.getCustomSpawnerConfigs().stream()
+                    .map(SpawnerConfigHolder::createItem)
+                    .forEach(event.getRegistry()::register);
         }
 
-        @SideOnly(Side.CLIENT)
         @SubscribeEvent
-        public void registerRenders(ModelRegistryEvent event) {
-            if (Configuration.registerCustomSpawner)
-                ModelLoader.setCustomModelResourceLocation(ModItems.CONTROLLED_SPAWNER, 0, new ModelResourceLocation("mob_spawner", "inventory"));
+        @SideOnly(Side.CLIENT)
+        public static void registerRenders(ModelRegistryEvent event) {
+            ModelResourceLocation mrl = new ModelResourceLocation("mob_spawner", "inventory");
+            for (SpawnerConfigHolder spawnerConfigHolder : CustomSpawnersConfig.getCustomSpawnerConfigs()) {
+                ModelLoader.setCustomModelResourceLocation(spawnerConfigHolder.getItem(), 0, mrl);
+                mapToSpawnerModel(spawnerConfigHolder.getBlock(), mrl);
+            }
+        }
+
+        /**
+         * Maps all states of a block to a custom {@link net.minecraft.client.renderer.block.model.IBakedModel}
+         *
+         * @param block the block to be mapped
+         */
+        @SideOnly(Side.CLIENT)
+        private static void mapToSpawnerModel(Block block, ModelResourceLocation mrl) {
+            StateMapperBase ignoreState = new StateMapperBase() {
+                @Nonnull
+                @Override
+                protected ModelResourceLocation getModelResourceLocation(@Nonnull IBlockState iBlockState) {
+                    return mrl;
+                }
+            };
+            ModelLoader.setCustomStateMapper(block, ignoreState);
         }
 
     }
