@@ -69,6 +69,10 @@ public class SpawnerConfigHolder {
         return name;
     }
 
+    public ResourceLocation getRegistryName() {
+        return registryName;
+    }
+
     public SpawnerConfig getConfigObject() {
         return configObject;
     }

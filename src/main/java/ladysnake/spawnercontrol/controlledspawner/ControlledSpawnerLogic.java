@@ -14,6 +14,7 @@ import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
 import net.minecraft.world.WorldServer;
 import net.minecraft.world.chunk.storage.AnvilChunkLoader;
+import net.minecraftforge.event.ForgeEventFactory;
 
 import javax.annotation.Nonnull;
 
@@ -112,9 +113,16 @@ public class ControlledSpawnerLogic extends MobSpawnerBaseLogic {
                     EntityLiving entityliving = entity instanceof EntityLiving ? (EntityLiving) entity : null;
                     entity.setLocationAndAngles(entity.posX, entity.posY, entity.posZ, world.rand.nextFloat() * 360.0F, 0.0F);
 
-                    if (entityliving == null || CheckSpawnerSpawnEvent.canEntitySpawnSpawner(entityliving, getSpawnerWorld(), (float) entity.posX, (float) entity.posY, (float) entity.posZ, tileEntityControlledSpawner)) {
+                    // TODO replace by a call to ForgeEventFactory in 1.13
+                    if (entityliving == null || CheckSpawnerSpawnEvent.canEntitySpawnSpawner(entityliving, getSpawnerWorld(), (float) entity.posX, (float) entity.posY, (float) entity.posZ, this)) {
+                        // Patch: stop spawning mobs if we reached the max
+                        IControllableSpawner handler = CapabilityControllableSpawner.getHandler(tileEntityControlledSpawner);
+                        if (!handler.getConfig().incrementOnMobDeath &&
+                                handler.incrementSpawnedMobsCount())
+                            return;
+                        // Patch end
                         if (this.spawnData.getNbt().getSize() == 1 && this.spawnData.getNbt().hasKey("id", 8) && entity instanceof EntityLiving) {
-                            if (!net.minecraftforge.event.ForgeEventFactory.doSpecialSpawn(entityliving, this.getSpawnerWorld(), (float) entity.posX, (float) entity.posY, (float) entity.posZ))
+                            if (!ForgeEventFactory.doSpecialSpawn(entityliving, this.getSpawnerWorld(), (float) entity.posX, (float) entity.posY, (float) entity.posZ, this))
                                 ((EntityLiving) entity).onInitialSpawn(world.getDifficultyForLocation(new BlockPos(entity)), null);
                         }
 
@@ -127,12 +135,6 @@ public class ControlledSpawnerLogic extends MobSpawnerBaseLogic {
 
                         entity.getEntityData().setLong(NBT_TAG_SPAWNER_POS, this.getSpawnerPosition().toLong());
 
-                        // Patch: stop spawning mobs if we reached the max
-                        IControllableSpawner handler = CapabilityControllableSpawner.getHandler(tileEntityControlledSpawner);
-                        if (!handler.getConfig().incrementOnMobDeath &&
-                                handler.incrementSpawnedMobsCount())
-                            return;
-                        // Patch end
 
                         flag = true;
                     }

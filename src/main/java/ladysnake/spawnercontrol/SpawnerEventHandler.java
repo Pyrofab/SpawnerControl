@@ -17,6 +17,7 @@ import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.BlockPos;
 import net.minecraftforge.event.AttachCapabilitiesEvent;
 import net.minecraftforge.event.entity.living.LivingDeathEvent;
+import net.minecraftforge.event.entity.living.LivingSpawnEvent;
 import net.minecraftforge.event.world.BlockEvent;
 import net.minecraftforge.fml.common.FMLCommonHandler;
 import net.minecraftforge.fml.common.Mod;
@@ -69,24 +70,28 @@ public class SpawnerEventHandler {
     }
 
     /**
-     * Runs most of the logic associated with {@link SpawnerConfig.SpawnConditions}
+     * Runs the main logic of the mod as well as most of the logic associated with {@link SpawnerConfig.SpawnConditions}
      */
-    // We use our custom event to filter out unaffected spawners
     @SubscribeEvent(priority = EventPriority.LOWEST)
-    public static void onCheckSpawnerSpawn(CheckSpawnerSpawnEvent event) {
-        if (event.getResult() == Event.Result.DEFAULT) {
-            EntityLiving spawned = (EntityLiving) event.getEntityLiving();
-            // keep the collision check because mobs spawning in walls is not good
-            boolean canSpawn = spawned.isNotColliding();
+    public static void onCheckSpawnerSpawn(LivingSpawnEvent.CheckSpawn event) {
+        // don't affect natural spawns
+        if (event.getSpawner() != null) {
+            SpawnerConfig cfg = SpawnerUtil.getConfig(event.getWorld(), event.getSpawner().getSpawnerPosition());
+            if (cfg == null) return;
+            // Runs logic associated with SpawnConditions
+            if (event.getResult() == Event.Result.DEFAULT) {
+                EntityLiving spawned = (EntityLiving) event.getEntityLiving();
+                // keep the collision check because mobs spawning in walls is not good
+                boolean canSpawn = spawned.isNotColliding();
 
-            SpawnerConfig cfg = CapabilityControllableSpawner.getHandler(event.getSpawner()).getConfig();
-            // Tweaks spawners to prevent light from disabling spawns, except when the entity can see the sun
-            if (cfg.spawnConditions.forceSpawnerMobSpawns && event.getEntity() instanceof IMob) {
-                if (cfg.spawnConditions.checkSunlight)
-                    canSpawn &= !(event.getWorld().canSeeSky(new BlockPos(spawned)) && event.getWorld().isDaytime());
-            } else if (!cfg.spawnConditions.forceSpawnerAllSpawns)
-                return; // this entity is not affected, do not interfere
-            event.setResult(canSpawn ? Event.Result.ALLOW : Event.Result.DENY);
+                // Tweaks spawners to prevent light from disabling spawns, except when the entity can see the sun
+                if (cfg.spawnConditions.forceSpawnerMobSpawns && event.getEntity() instanceof IMob) {
+                    if (cfg.spawnConditions.checkSunlight)
+                        canSpawn &= !(event.getWorld().canSeeSky(new BlockPos(spawned)) && event.getWorld().isDaytime());
+                } else if (!cfg.spawnConditions.forceSpawnerAllSpawns)
+                    return; // this entity is not affected, do not interfere
+                event.setResult(canSpawn ? Event.Result.ALLOW : Event.Result.DENY);
+            }
         }
     }
 
