@@ -13,8 +13,10 @@ import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.tileentity.MobSpawnerBaseLogic;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.tileentity.TileEntityMobSpawner;
+import net.minecraft.util.EnumParticleTypes;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.WorldServer;
 import net.minecraftforge.event.AttachCapabilitiesEvent;
 import net.minecraftforge.event.entity.living.LivingDeathEvent;
 import net.minecraftforge.event.entity.living.LivingSpawnEvent;
@@ -35,12 +37,21 @@ import java.util.*;
 @Mod.EventBusSubscriber(modid = SpawnerControl.MOD_ID)
 public class SpawnerEventHandler {
 
-    /**Set containing all mob spawner tile entities that have been constructed this tick*/
-    private static Set<TileEntityMobSpawner> spawners;
+    /**
+     * Set containing all mob spawner tile entities that have been constructed this tick
+     */
+    private static Set<TileEntityMobSpawner> pendingSpawners;
+    /**
+     * Set caching all known mob spawner tile entities that are affected by the mod
+     * TODO consider spawner entities as well (cf. {@link MobSpawnerBaseLogic#getSpawnerEntity()})
+     */
+    private static Set<TileEntityMobSpawner> allSpawners;
 
     static {
         // synchronize the set just in case forge's guess for logical side is wrong
-        spawners = Collections.synchronizedSet(new HashSet<TileEntityMobSpawner>());
+        pendingSpawners = Collections.synchronizedSet(new HashSet<TileEntityMobSpawner>());
+        // use weak references to avoid memory leaks
+        allSpawners = Collections.newSetFromMap(new WeakHashMap<>());
     }
 
     @SubscribeEvent
@@ -50,16 +61,21 @@ public class SpawnerEventHandler {
             TileEntityMobSpawner spawner = (TileEntityMobSpawner) event.getObject();
             if (MSCConfig.alterVanillaSpawner && FMLCommonHandler.instance().getEffectiveSide() == Side.SERVER) {
                 //need to wait a tick after construction, as the field will be reassigned
-                spawners.add(spawner);
+                pendingSpawners.add(spawner);
             }
-            if (!(spawner instanceof TileEntityControlledSpawner)) // custom spawners have their own handler
+            if ((MSCConfig.alterVanillaSpawner || spawner instanceof TileEntityControlledSpawner)
+                    && FMLCommonHandler.instance().getEffectiveSide() == Side.SERVER) {
+                allSpawners.add(spawner);
+            }
+            if (!(spawner instanceof TileEntityControlledSpawner)) // custom pendingSpawners have their own handler
                 event.addCapability(CapabilityControllableSpawner.CAPABILITY_KEY, new CapabilityControllableSpawner.Provider(spawner));
         }
     }
 
     @SubscribeEvent
     public static void onTickWorldTick(TickEvent.WorldTickEvent event) {
-        for (Iterator<TileEntityMobSpawner> iterator = spawners.iterator(); iterator.hasNext(); ) {
+        if (event.phase == TickEvent.Phase.START) return;
+        for (Iterator<TileEntityMobSpawner> iterator = pendingSpawners.iterator(); iterator.hasNext(); ) {
             TileEntityMobSpawner spawner = iterator.next();
             MobSpawnerBaseLogic logic = new ControlledSpawnerLogic(spawner);
             // preserve the spawn information
@@ -67,31 +83,80 @@ public class SpawnerEventHandler {
             spawner.spawnerLogic = logic;
             iterator.remove();
         }
+        for (Iterator<TileEntityMobSpawner> iterator = allSpawners.iterator(); iterator.hasNext(); ) {
+            TileEntityMobSpawner spawner = iterator.next();
+            // maintain the spawner list independently to avoid the cost of iterating through every tile entity
+            if (spawner.isInvalid()) {
+                iterator.remove();
+                continue;
+            }
+            if (spawner.getWorld() == event.world) {
+                IControllableSpawner handler = CapabilityControllableSpawner.getHandler(spawner);
+                if (!handler.canSpawn()) {
+                    if (handler.getConfig().breakSpawner)
+                        spawner.getWorld().setBlockToAir(spawner.getPos());
+                    if (!spawner.getWorld().isRemote) {
+                        double d3 = (double) ((float) spawner.getPos().getX() + spawner.getWorld().rand.nextFloat());
+                        double d4 = (double) ((float) spawner.getPos().getY() + spawner.getWorld().rand.nextFloat());
+                        double d5 = (double) ((float) spawner.getPos().getZ() + spawner.getWorld().rand.nextFloat());
+                        ((WorldServer) spawner.getWorld()).spawnParticle(EnumParticleTypes.SMOKE_LARGE, d3, d4, d5, 3, 0, 0, 0, 0.0);
+                    }
+                }
+            }
+        }
     }
 
     /**
      * Runs the main logic of the mod as well as most of the logic associated with {@link SpawnerConfig.SpawnConditions}
+     * TODO use {@link LivingSpawnEvent.CheckSpawn} in 1.13
      */
     @SubscribeEvent(priority = EventPriority.LOWEST)
-    public static void onCheckSpawnerSpawn(LivingSpawnEvent.CheckSpawn event) {
-        // don't affect natural spawns
+    public static void onCheckSpawnerSpawn(CheckSpawnerSpawnEvent event) {
+        // only affect spawner-caused spawns
         if (event.getSpawner() != null) {
-            SpawnerConfig cfg = SpawnerUtil.getConfig(event.getWorld(), event.getSpawner().getSpawnerPosition());
-            if (cfg == null) return;
+            IControllableSpawner handler = SpawnerUtil.getHandlerIfAffected(event.getWorld(), event.getSpawner().getSpawnerPosition());
+            if (handler == null) return;
+
+            SpawnerConfig cfg = handler.getConfig();
+            boolean canSpawn;
+
             // Runs logic associated with SpawnConditions
             if (event.getResult() == Event.Result.DEFAULT) {
                 EntityLiving spawned = (EntityLiving) event.getEntityLiving();
                 // keep the collision check because mobs spawning in walls is not good
-                boolean canSpawn = spawned.isNotColliding();
-
-                // Tweaks spawners to prevent light from disabling spawns, except when the entity can see the sun
+                canSpawn = spawned.isNotColliding();
+                // Tweaks pendingSpawners to prevent light from disabling spawns, except when the entity can see the sun
                 if (cfg.spawnConditions.forceSpawnerMobSpawns && event.getEntity() instanceof IMob) {
                     if (cfg.spawnConditions.checkSunlight)
                         canSpawn &= !(event.getWorld().canSeeSky(new BlockPos(spawned)) && event.getWorld().isDaytime());
                 } else if (!cfg.spawnConditions.forceSpawnerAllSpawns)
-                    return; // this entity is not affected, do not interfere
-                event.setResult(canSpawn ? Event.Result.ALLOW : Event.Result.DENY);
+                    canSpawn &= spawned.getCanSpawnHere(); // this entity is not affected, do not interfere
+            } else {
+                canSpawn = event.getResult() == Event.Result.ALLOW;
             }
+            // increments spawn counts and prevents spawns if over the limit
+            if (canSpawn) {
+                if (handler.canSpawn()) {
+                    if (!handler.getConfig().incrementOnMobDeath)
+                        handler.incrementSpawnedMobsCount();
+                    event.setResult(Event.Result.ALLOW);
+                } else {
+                    event.setResult(Event.Result.DENY);
+                }
+            }
+        }
+    }
+
+    @SubscribeEvent
+    public static void onLivingSpawnSpecialSpawn(SpawnerSpecialSpawnEvent event) {
+        IControllableSpawner handler = SpawnerUtil.getHandlerIfAffected(event.getWorld(), event.getSpawner().getSpawnerPosition());
+        if (handler == null) return;
+        if (handler.canSpawn()) {
+            if (!handler.getConfig().incrementOnMobDeath)
+                handler.incrementSpawnedMobsCount();
+            event.setResult(Event.Result.ALLOW);
+        } else {
+            event.setResult(Event.Result.DENY);
         }
     }
 
@@ -138,7 +203,7 @@ public class SpawnerEventHandler {
             Block block = event.getState().getBlock();
             if (block instanceof BlockControlledSpawner)
                 cfg = ((BlockControlledSpawner) block).getConfig();
-            else if(block instanceof BlockMobSpawner && MSCConfig.alterVanillaSpawner)
+            else if (block instanceof BlockMobSpawner && MSCConfig.alterVanillaSpawner)
                 cfg = MSCConfig.vanillaSpawnerConfig;
             else return;
 

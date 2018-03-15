@@ -12,9 +12,7 @@ import net.minecraft.util.EnumParticleTypes;
 import net.minecraft.util.math.AxisAlignedBB;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
-import net.minecraft.world.WorldServer;
 import net.minecraft.world.chunk.storage.AnvilChunkLoader;
-import net.minecraftforge.event.ForgeEventFactory;
 
 import javax.annotation.Nonnull;
 
@@ -50,19 +48,6 @@ public class ControlledSpawnerLogic extends MobSpawnerBaseLogic {
         BlockPos blockpos = this.getSpawnerPosition();
         if (!this.isActivated()) {
             this.prevMobRotation = this.mobRotation;
-            // Patch: Handle obsolete spawner
-            IControllableSpawner handler = CapabilityControllableSpawner.getHandler(tileEntityControlledSpawner);
-            if (!handler.canSpawn()) {
-                if (handler.getConfig().breakSpawner)
-                    getSpawnerWorld().setBlockToAir(getSpawnerPosition());
-                if (!this.getSpawnerWorld().isRemote) {
-                    double d3 = (double) ((float) blockpos.getX() + this.getSpawnerWorld().rand.nextFloat());
-                    double d4 = (double) ((float) blockpos.getY() + this.getSpawnerWorld().rand.nextFloat());
-                    double d5 = (double) ((float) blockpos.getZ() + this.getSpawnerWorld().rand.nextFloat());
-                    ((WorldServer) this.getSpawnerWorld()).spawnParticle(EnumParticleTypes.SMOKE_LARGE, d3, d4, d5, 3, 0, 0, 0, 0.0);
-                }
-            }
-            // Patch end
         } else {
             if (this.getSpawnerWorld().isRemote) {
                 double d3 = (double) ((float) blockpos.getX() + this.getSpawnerWorld().rand.nextFloat());
@@ -113,16 +98,11 @@ public class ControlledSpawnerLogic extends MobSpawnerBaseLogic {
                     EntityLiving entityliving = entity instanceof EntityLiving ? (EntityLiving) entity : null;
                     entity.setLocationAndAngles(entity.posX, entity.posY, entity.posZ, world.rand.nextFloat() * 360.0F, 0.0F);
 
+                    // Patch: post a custom event with custom spawner information
                     // TODO replace by a call to ForgeEventFactory in 1.13
                     if (entityliving == null || CheckSpawnerSpawnEvent.canEntitySpawnSpawner(entityliving, getSpawnerWorld(), (float) entity.posX, (float) entity.posY, (float) entity.posZ, this)) {
-                        // Patch: stop spawning mobs if we reached the max
-                        IControllableSpawner handler = CapabilityControllableSpawner.getHandler(tileEntityControlledSpawner);
-                        if (!handler.getConfig().incrementOnMobDeath &&
-                                handler.incrementSpawnedMobsCount())
-                            return;
-                        // Patch end
                         if (this.spawnData.getNbt().getSize() == 1 && this.spawnData.getNbt().hasKey("id", 8) && entity instanceof EntityLiving) {
-                            if (!ForgeEventFactory.doSpecialSpawn(entityliving, this.getSpawnerWorld(), (float) entity.posX, (float) entity.posY, (float) entity.posZ, this))
+                            if (!SpawnerSpecialSpawnEvent.doSpecialSpawn(entityliving, this.getSpawnerWorld(), (float) entity.posX, (float) entity.posY, (float) entity.posZ, this))
                                 ((EntityLiving) entity).onInitialSpawn(world.getDifficultyForLocation(new BlockPos(entity)), null);
                         }
 

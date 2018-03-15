@@ -3,6 +3,7 @@ package ladysnake.spawnercontrol;
 import ladysnake.spawnercontrol.config.MSCConfig;
 import ladysnake.spawnercontrol.config.SpawnerConfig;
 import ladysnake.spawnercontrol.controlledspawner.CapabilityControllableSpawner;
+import ladysnake.spawnercontrol.controlledspawner.IControllableSpawner;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.tileentity.TileEntityMobSpawner;
 import net.minecraft.util.math.BlockPos;
@@ -22,6 +23,16 @@ public class SpawnerUtil {
         SpawnerConfig ret = CapabilityControllableSpawner.getHandler((TileEntityMobSpawner) spawnerTE).getConfig();
         // filter out non-mod spawners directly if they are to be ignored
         if (ret == MSCConfig.vanillaSpawnerConfig && !MSCConfig.alterVanillaSpawner)
+            return null;
+        return ret;
+    }
+
+    public static IControllableSpawner getHandlerIfAffected(World world, BlockPos spawnerPos) {
+        TileEntity spawnerTE = world.getTileEntity(spawnerPos);
+        if (!(spawnerTE instanceof TileEntityMobSpawner)) return null;
+        IControllableSpawner ret = CapabilityControllableSpawner.getHandler((TileEntityMobSpawner) spawnerTE);
+        // filter out non-mod spawners directly if they are to be ignored
+        if (ret.getConfig() == MSCConfig.vanillaSpawnerConfig && !MSCConfig.alterVanillaSpawner)
             return null;
         return ret;
     }

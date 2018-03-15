@@ -16,13 +16,17 @@ public class CheckSpawnerSpawnEvent extends LivingSpawnEvent.CheckSpawn {
     protected final MobSpawnerBaseLogic spawner;
 
     private CheckSpawnerSpawnEvent(EntityLiving entity, World world, float x, float y, float z, MobSpawnerBaseLogic spawner) {
-        super(entity, world, x, y, z, spawner);
-//        super(entity, world, x, y, z);    // 1.11.2 constructor
+//        super(entity, world, x, y, z, spawner);
+        super(entity, world, x, y, z);    // 1.11.2 constructor
         this.spawner = spawner;
     }
 
     public MobSpawnerBaseLogic getSpawner() {
         return spawner;
+    }
+
+    public boolean isSpawner() {
+        return true;
     }
 
     public static boolean canEntitySpawnSpawner(EntityLiving entity, World world, float x, float y, float z, MobSpawnerBaseLogic spawner) {
