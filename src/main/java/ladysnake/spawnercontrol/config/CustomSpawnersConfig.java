@@ -10,6 +10,7 @@ import net.minecraftforge.common.config.Property;
 import java.io.File;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Collection;
 import java.util.HashMap;
@@ -25,6 +26,7 @@ public class CustomSpawnersConfig {
     // we want to sync dynamically generated config to objects for convenience
     // that method does exactly that, sadly it's private
     static MethodHandle configManager$sync;
+    private static Configuration mainConfiguration;
     /**Maps custom spawner names to their configuration*/
     private static final Map<ResourceLocation, SpawnerConfigHolder> customSpawnerConfigs = new HashMap<>();
 
@@ -38,12 +40,34 @@ public class CustomSpawnersConfig {
         }
     }
 
+    /**
+     * Gets the specific configuration object used by forge's annotation system, as newly created config objects will
+     * not be taken into account.
+     * @return the configuration object used by forge for this mod's main config
+     */
+    static Configuration getMainConfiguration() {
+        if (mainConfiguration == null) {
+            try {
+                // Get the specific configuration object used by forge to change its validation pattern
+                Method getConfiguration = ConfigManager.class.getDeclaredMethod("getConfiguration", String.class, String.class);
+                getConfiguration.setAccessible(true);
+                mainConfiguration = (Configuration) getConfiguration.invoke(null, SpawnerControl.MOD_ID, MAIN_CONFIG_FILE);
+            } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {
+                SpawnerControl.LOGGER.error("Error while attempting to access spawner control's configuration", e);
+                return new Configuration(new File(configDir, MAIN_CONFIG_FILE + ".cfg"));
+            }
+        }
+        return mainConfiguration;
+    }
+
     public static void initCustomConfig() {
-        Configuration baseConfig = new Configuration(new File(configDir, MAIN_CONFIG_FILE + ".cfg"));
+        Configuration baseConfig = getMainConfiguration();
         ConfigCategory mainCategory = baseConfig.getCategory(Configuration.CATEGORY_GENERAL);
-        Property prop = mainCategory.get("customSpawners");
-        prop.setValidationPattern(VALIDATION_PATTERN);
-        for (String name : prop.getStringList()) {
+        Property customSpawnersProp = mainCategory.get("customSpawners");
+        // set the validation pattern here as there isn't an annotation for that
+        customSpawnersProp.setValidationPattern(VALIDATION_PATTERN);
+        for (String name : customSpawnersProp.getStringList()) {
+            // as the validation pattern wasn't used when reading the values, it can contain garbage from the file
             if (VALIDATION_PATTERN.matcher(name).matches())
                 generateConfig(baseConfig.getCategory(VANILLA_CONFIG_CATEGORY), name);
             else

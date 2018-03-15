@@ -12,9 +12,9 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
-public class MSCGuiConfig extends GuiConfig {
-    public MSCGuiConfig(GuiScreen parentScreen, String modid, String title) {
-        super(parentScreen, modid, title);
+class MSCGuiConfig extends GuiConfig {
+    MSCGuiConfig(GuiScreen parentScreen, String modId, String title) {
+        super(parentScreen, modId, title);
         // add config options for custom spawner
         List<IConfigElement> elements = CustomSpawnersConfig.getCustomSpawnerConfigs().stream()
                 .map(SpawnerConfigHolder::getConfigCategory)
@@ -24,7 +24,7 @@ public class MSCGuiConfig extends GuiConfig {
                     element.setRequiresWorldRestart(category.requiresWorldRestart());
                     return element;
                 }).collect(Collectors.toList());
-        this.configElements.add(new DummyConfigElement.DummyCategoryElement("custom spawners", "msc.config.custom_spawners", elements));
+        this.configElements.add(new DummyConfigElement.DummyCategoryElement("custom spawners", "spawnercontrol.general.custom_spawners", elements));
 
         // put the damn categories first
         this.configElements.sort(Comparator.comparing(IConfigElement::isProperty));

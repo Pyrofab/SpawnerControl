@@ -12,7 +12,7 @@ import java.io.IOException;
 import java.util.Map;
 
 @SuppressWarnings("WeakerAccess")
-@Config(modid= SpawnerControl.MOD_ID, name = CustomSpawnersConfig.MAIN_CONFIG_FILE)
+@Config(modid = SpawnerControl.MOD_ID, name = CustomSpawnersConfig.MAIN_CONFIG_FILE)
 @Mod.EventBusSubscriber(modid = SpawnerControl.MOD_ID)
 public class MSCConfig {
 
@@ -24,7 +24,7 @@ public class MSCConfig {
     public static SpawnerConfig vanillaSpawnerConfig = new SpawnerConfig();
 
     @Config.RequiresMcRestart
-    @Config.Comment({"A list of ids used to generate custom spawner objects", "Each custom spawner uses a separate configuration file, accessible in the 'custom spawners' category"})
+    @Config.Comment({"A list of ids used to generate custom spawner objects", "Each custom spawner uses a separate configuration file, accessible in the 'custom spawners config' category"})
     public static String[] customSpawners = new String[0];
 
     @Config.RequiresMcRestart
@@ -33,18 +33,20 @@ public class MSCConfig {
 
     public static void portConfig() {
         File oldConfigFile = new File(CustomSpawnersConfig.configDir, SpawnerControl.MOD_ID + ".cfg");
-        File newConfigFile = new File(CustomSpawnersConfig.configDir, CustomSpawnersConfig.MAIN_CONFIG_FILE + ".cfg");
         if (!oldConfigFile.exists()) return;
         Configuration oldConfig = new Configuration(oldConfigFile, "1.0");
-        Configuration newConfig = new Configuration(newConfigFile, "1.0");
+        Configuration newConfig = CustomSpawnersConfig.getMainConfiguration();
         if (oldConfig.getLoadedConfigVersion() == null) { // pre-1.4 config
             ConfigCategory general = oldConfig.getCategory(Configuration.CATEGORY_GENERAL);
             ConfigCategory vanillaSpawner = newConfig.getCategory(CustomSpawnersConfig.VANILLA_CONFIG_CATEGORY);
             // move properties from general to vanillaSpawnerConfig
-            for (Map.Entry<String, Property> entry : vanillaSpawner.getValues().entrySet())
-                if (general.containsKey(entry.getKey()))
-                    vanillaSpawner.put(entry.getKey(), general.get(entry.getKey()));
+            copyConfigCategory(general, vanillaSpawner);
 
+            // hardcoded because old configs only have 1 subcategory
+            ConfigCategory oldSpawnConditions = general.getChildren().iterator().next();
+            vanillaSpawner.getChildren().stream()
+                    .filter(child -> child.getName().equals(oldSpawnConditions.getName()))
+                    .findAny().ifPresent(spawnConditions -> copyConfigCategory(oldSpawnConditions, spawnConditions));
             newConfig.save();
             try {
                 Files.move(oldConfigFile, new File(CustomSpawnersConfig.configDir, SpawnerControl.MOD_ID + "_old.cfg"));
@@ -53,6 +55,12 @@ public class MSCConfig {
             }
         }
 
+    }
+
+    private static void copyConfigCategory(ConfigCategory oldConf, ConfigCategory newConf) {
+        for (Map.Entry<String, Property> entry : newConf.getValues().entrySet())
+            if (oldConf.containsKey(entry.getKey()))
+                newConf.put(entry.getKey(), oldConf.get(entry.getKey()));
     }
 
     @SubscribeEvent
