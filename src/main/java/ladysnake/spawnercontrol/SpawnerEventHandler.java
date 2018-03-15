@@ -137,8 +137,6 @@ public class SpawnerEventHandler {
             // increments spawn counts and prevents spawns if over the limit
             if (canSpawn) {
                 if (handler.canSpawn()) {
-                    if (!handler.getConfig().incrementOnMobDeath)
-                        handler.incrementSpawnedMobsCount();
                     event.setResult(Event.Result.ALLOW);
                 } else {
                     event.setResult(Event.Result.DENY);
