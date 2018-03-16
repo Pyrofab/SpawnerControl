@@ -16,11 +16,11 @@ public class CheckSpawnerSpawnEvent extends LivingSpawnEvent.CheckSpawn {
     protected final MobSpawnerBaseLogic spawner;
 
     private CheckSpawnerSpawnEvent(EntityLiving entity, World world, float x, float y, float z, MobSpawnerBaseLogic spawner) {
-//        super(entity, world, x, y, z, spawner);
-        super(entity, world, x, y, z);    // 1.11.2 constructor
+        super(entity, world, x, y, z);    // use 1.11.2 constructor for backward compatibility
         this.spawner = spawner;
     }
 
+    // no override annotation to avoid the compiler yelling in older versions
     public MobSpawnerBaseLogic getSpawner() {
         return spawner;
     }
@@ -29,6 +29,10 @@ public class CheckSpawnerSpawnEvent extends LivingSpawnEvent.CheckSpawn {
         return true;
     }
 
+    /**
+     * A replacement for forge's hook firing our custom event.
+     * @see net.minecraftforge.event.ForgeEventFactory#canEntitySpawnSpawner(EntityLiving, World, float, float, float, MobSpawnerBaseLogic)
+     */
     public static boolean canEntitySpawnSpawner(EntityLiving entity, World world, float x, float y, float z, MobSpawnerBaseLogic spawner) {
         Result result;
         if (entity == null)

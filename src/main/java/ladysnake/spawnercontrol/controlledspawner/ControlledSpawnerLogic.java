@@ -19,6 +19,9 @@ import javax.annotation.Nonnull;
 /**
  * Copy of the vanilla logic to insert dedicated hooks without ASM <br/>
  * Additional information cannot be stored here as it will be erased on world load, use the capability instead
+ * <p>
+ *     As of the
+ * </p>
  * @see IControllableSpawner
  * @see CapabilityControllableSpawner
  */

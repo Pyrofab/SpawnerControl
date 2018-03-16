@@ -92,14 +92,16 @@ public class SpawnerEventHandler {
             }
             if (spawner.getWorld() == event.world) {
                 IControllableSpawner handler = CapabilityControllableSpawner.getHandler(spawner);
+                // handle obsolete spawners
                 if (!handler.canSpawn()) {
                     if (handler.getConfig().breakSpawner)
                         spawner.getWorld().setBlockToAir(spawner.getPos());
+                    // spawn particles for disabled spawners
                     if (!spawner.getWorld().isRemote) {
-                        double d3 = (double) ((float) spawner.getPos().getX() + spawner.getWorld().rand.nextFloat());
-                        double d4 = (double) ((float) spawner.getPos().getY() + spawner.getWorld().rand.nextFloat());
-                        double d5 = (double) ((float) spawner.getPos().getZ() + spawner.getWorld().rand.nextFloat());
-                        ((WorldServer) spawner.getWorld()).spawnParticle(EnumParticleTypes.SMOKE_LARGE, d3, d4, d5, 3, 0, 0, 0, 0.0);
+                        double x = (double) ((float) spawner.getPos().getX() + spawner.getWorld().rand.nextFloat());
+                        double y = (double) ((float) spawner.getPos().getY() + spawner.getWorld().rand.nextFloat());
+                        double z = (double) ((float) spawner.getPos().getZ() + spawner.getWorld().rand.nextFloat());
+                        ((WorldServer) spawner.getWorld()).spawnParticle(EnumParticleTypes.SMOKE_LARGE, x, y, z, 3, 0, 0, 0, 0.0);
                     }
                 }
             }
@@ -147,6 +149,7 @@ public class SpawnerEventHandler {
 
     @SubscribeEvent
     public static void onLivingSpawnSpecialSpawn(SpawnerSpecialSpawnEvent event) {
+        if (event.getSpawner() == null) return;     // this can't happen currently but it will with forge's event
         IControllableSpawner handler = SpawnerUtil.getHandlerIfAffected(event.getWorld(), event.getSpawner().getSpawnerPosition());
         if (handler == null) return;
         if (handler.canSpawn()) {
@@ -212,6 +215,7 @@ public class SpawnerEventHandler {
                 if (split.length > 1) {
                     Item item = Item.REGISTRY.getObject(new ResourceLocation(split[0], split[1]));
                     try {
+                        // get additional properties for the item stack
                         if (item != null) {
                             int count = split.length >= 3 ? Integer.parseInt(split[2]) : 1;
                             int meta = split.length >= 4 ? Integer.parseInt(split[3]) : 0;

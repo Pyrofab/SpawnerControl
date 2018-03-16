@@ -22,6 +22,7 @@ public class SpawnerConfig {
     @Config.Comment("The minimum amount of xp dropped by a spawner when broken")
     public int xpDropped = 15;
 
+    @Config.RangeInt(min = 0)
     @Config.Comment("The formula used to calculate xp dropped is 'xpDropped + rand(this number) + rand(this number)'")
     public int randXpVariation = 15;
 

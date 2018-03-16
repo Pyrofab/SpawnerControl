@@ -19,6 +19,7 @@ public class SpawnerUtil {
             return MSCConfig.alterVanillaSpawner ? MSCConfig.vanillaSpawnerConfig : null;
 
         TileEntity spawnerTE = world.getTileEntity(spawnerPos);
+        // if it is not a spawner, it does not have a config
         if (!(spawnerTE instanceof TileEntityMobSpawner)) return null;
         SpawnerConfig ret = CapabilityControllableSpawner.getHandler((TileEntityMobSpawner) spawnerTE).getConfig();
         // filter out non-mod spawners directly if they are to be ignored
@@ -27,6 +28,7 @@ public class SpawnerUtil {
         return ret;
     }
 
+    @Nullable
     public static IControllableSpawner getHandlerIfAffected(World world, BlockPos spawnerPos) {
         TileEntity spawnerTE = world.getTileEntity(spawnerPos);
         if (!(spawnerTE instanceof TileEntityMobSpawner)) return null;
