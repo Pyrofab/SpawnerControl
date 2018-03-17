@@ -14,13 +14,13 @@ import javax.annotation.Nullable;
 public class SpawnerUtil {
     @Nullable
     public static SpawnerConfig getConfig(World world, BlockPos spawnerPos) {
-        // if no custom spawner is registered, every spawner is a vanilla one
-        if (MSCConfig.customSpawners.length == 0)
-            return MSCConfig.alterVanillaSpawner ? MSCConfig.vanillaSpawnerConfig : null;
 
         TileEntity spawnerTE = world.getTileEntity(spawnerPos);
         // if it is not a spawner, it does not have a config
         if (!(spawnerTE instanceof TileEntityMobSpawner)) return null;
+        // if no custom spawner is registered, every spawner is a vanilla one
+        if (MSCConfig.customSpawners.length == 0)
+            return MSCConfig.alterVanillaSpawner ? MSCConfig.vanillaSpawnerConfig : null;
         SpawnerConfig ret = CapabilityControllableSpawner.getHandler((TileEntityMobSpawner) spawnerTE).getConfig();
         // filter out non-mod spawners directly if they are to be ignored
         if (ret == MSCConfig.vanillaSpawnerConfig && !MSCConfig.alterVanillaSpawner)

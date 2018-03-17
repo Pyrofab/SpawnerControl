@@ -24,6 +24,7 @@ public class MSCConfig {
     public static SpawnerConfig vanillaSpawnerConfig = new SpawnerConfig();
 
     @Config.RequiresMcRestart
+    @Config.RequiresWorldRestart // this config can actually cause unexpected behaviour when changed in-game
     @Config.Comment({"A list of ids used to generate custom spawner objects", "Each custom spawner uses a separate configuration file, accessible in the 'custom spawners config' category"})
     public static String[] customSpawners = new String[0];
 
