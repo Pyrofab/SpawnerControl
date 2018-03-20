@@ -2,11 +2,7 @@ package ladysnake.spawnercontrol.config;
 
 import ladysnake.spawnercontrol.SpawnerControl;
 import net.minecraft.util.ResourceLocation;
-import net.minecraftforge.common.config.Config.Ignore;
-import net.minecraftforge.common.config.ConfigCategory;
-import net.minecraftforge.common.config.ConfigManager;
-import net.minecraftforge.common.config.Configuration;
-import net.minecraftforge.common.config.Property;
+import net.minecraftforge.common.config.*;
 import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
 
 import java.io.File;
@@ -23,7 +19,7 @@ import java.util.regex.Pattern;
  * This class is tasked to dynamically generate configuration options for each custom spawner added by the user <br/>
  * <p>
  * Constants used by the config systems are also stored here to avoid being considered as config options in annotated classes <br/>
- * TODO move MAIN_CONFIG_FILE and VANILLA_CONFIG_CATEGORY to {@link MSCConfig} in 1.13, using {@link Ignore}
+ * TODO move MAIN_CONFIG_FILE and VANILLA_CONFIG_CATEGORY to {@link MSCConfig} in 1.13, using {@link Config.Ignore}
  * </p>
  * @see MSCConfig#customSpawners
  */

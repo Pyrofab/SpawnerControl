@@ -15,7 +15,7 @@ import net.minecraftforge.event.entity.living.LivingSpawnEvent;
 public class CheckSpawnerSpawnEvent extends LivingSpawnEvent.CheckSpawn {
     protected final MobSpawnerBaseLogic spawner;
 
-    private CheckSpawnerSpawnEvent(EntityLiving entity, World world, float x, float y, float z, MobSpawnerBaseLogic spawner) {
+    public CheckSpawnerSpawnEvent(EntityLiving entity, World world, float x, float y, float z, MobSpawnerBaseLogic spawner) {
         super(entity, world, x, y, z);    // use 1.11.2 constructor for backward compatibility
         this.spawner = spawner;
     }

@@ -14,11 +14,10 @@ import javax.annotation.Nullable;
 public class SpawnerUtil {
     @Nullable
     public static SpawnerConfig getConfig(World world, BlockPos spawnerPos) {
-
         TileEntity spawnerTE = world.getTileEntity(spawnerPos);
         // if it is not a spawner, it does not have a config
         if (!(spawnerTE instanceof TileEntityMobSpawner)) return null;
-        // if no custom spawner is registered, every spawner is a vanilla one
+        // if no custom spawner is registered, every spawner is a vanilla one or equivalent
         if (MSCConfig.customSpawners.length == 0)
             return MSCConfig.alterVanillaSpawner ? MSCConfig.vanillaSpawnerConfig : null;
         SpawnerConfig ret = CapabilityControllableSpawner.getHandler((TileEntityMobSpawner) spawnerTE).getConfig();

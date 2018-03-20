@@ -40,12 +40,14 @@ public class SpawnerEventHandler {
     /**
      * Set containing all mob spawner tile entities that have been constructed this tick
      */
-    private static Set<TileEntityMobSpawner> pendingSpawners;
+    // not private for use in tests
+    static Set<TileEntityMobSpawner> pendingSpawners;
     /**
      * Set caching all known mob spawner tile entities that are affected by the mod
      * TODO consider spawner entities as well (cf. {@link MobSpawnerBaseLogic#getSpawnerEntity()})
      */
-    private static Set<TileEntityMobSpawner> allSpawners;
+    // not private for use in tests
+    static Set<TileEntityMobSpawner> allSpawners;
 
     static {
         // synchronize the set just in case forge's guess for logical side is wrong
@@ -67,14 +69,14 @@ public class SpawnerEventHandler {
                     && FMLCommonHandler.instance().getEffectiveSide() == Side.SERVER) {
                 allSpawners.add(spawner);
             }
-            if (!(spawner instanceof TileEntityControlledSpawner)) // custom pendingSpawners have their own handler
+            if (!(spawner instanceof TileEntityControlledSpawner)) // custom spawners have their own handler
                 event.addCapability(CapabilityControllableSpawner.CAPABILITY_KEY, new CapabilityControllableSpawner.Provider(spawner));
         }
     }
 
     @SubscribeEvent
     public static void onTickWorldTick(TickEvent.WorldTickEvent event) {
-        if (event.phase == TickEvent.Phase.START) return;
+        if (event.phase == TickEvent.Phase.START || event.side == Side.CLIENT) return;
         for (Iterator<TileEntityMobSpawner> iterator = pendingSpawners.iterator(); iterator.hasNext(); ) {
             TileEntityMobSpawner spawner = iterator.next();
             MobSpawnerBaseLogic logic = new ControlledSpawnerLogic(spawner);
@@ -123,7 +125,7 @@ public class SpawnerEventHandler {
             boolean canSpawn;
 
             // Runs logic associated with SpawnConditions
-            if (event.getResult() == Event.Result.DEFAULT) {
+            if (event.getResult() == Event.Result.DEFAULT && event.getEntityLiving() instanceof EntityLiving) {
                 EntityLiving spawned = (EntityLiving) event.getEntityLiving();
                 // keep the collision check because mobs spawning in walls is not good
                 canSpawn = spawned.isNotColliding();
@@ -143,6 +145,8 @@ public class SpawnerEventHandler {
                 } else {
                     event.setResult(Event.Result.DENY);
                 }
+            } else {
+                event.setResult(Event.Result.DENY);
             }
         }
     }

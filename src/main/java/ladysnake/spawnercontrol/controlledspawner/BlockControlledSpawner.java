@@ -1,7 +1,6 @@
 package ladysnake.spawnercontrol.controlledspawner;
 
 import ladysnake.spawnercontrol.config.SpawnerConfig;
-import ladysnake.spawnercontrol.config.SpawnerConfigHolder;
 import net.minecraft.block.BlockMobSpawner;
 import net.minecraft.block.SoundType;
 import net.minecraft.block.state.IBlockState;
@@ -17,11 +16,11 @@ import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
 
 public class BlockControlledSpawner extends BlockMobSpawner {
-    private SpawnerConfigHolder configHolder;
+    private SpawnerConfig config;
 
-    public BlockControlledSpawner(SpawnerConfigHolder configHolder) {
+    public BlockControlledSpawner(SpawnerConfig config) {
         super();
-        this.configHolder = configHolder;
+        this.config = config;
         this.setHardness(5.0F);
         this.setSoundType(SoundType.METAL);
         this.disableStats();
@@ -57,6 +56,6 @@ public class BlockControlledSpawner extends BlockMobSpawner {
     }
 
     public SpawnerConfig getConfig() {
-        return configHolder.getConfigObject();
+        return config;
     }
 }

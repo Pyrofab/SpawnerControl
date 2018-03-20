@@ -39,7 +39,7 @@ public class SpawnerConfigHolder {
      * @return a new {@link BlockControlledSpawner} instance using this config holder and named accordingly
      */
     public Block createBlock() {
-        return new BlockControlledSpawner(this)
+        return new BlockControlledSpawner(getConfigObject())
                 .setRegistryName(this.registryName)
                 .setUnlocalizedName("msc." + name)
                 .setCreativeTab(SpawnerControl.creativeTab);

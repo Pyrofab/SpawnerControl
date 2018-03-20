@@ -18,7 +18,7 @@ import java.util.Objects;
 
 public class CapabilityControllableSpawner {
     @CapabilityInject(IControllableSpawner.class)
-    static Capability<IControllableSpawner> CAPABILITY_SPAWNER;
+    public static Capability<IControllableSpawner> CAPABILITY_SPAWNER;
 
     public static final ResourceLocation CAPABILITY_KEY = new ResourceLocation(SpawnerControl.MOD_ID, "controllable_spawner_cap");
 
