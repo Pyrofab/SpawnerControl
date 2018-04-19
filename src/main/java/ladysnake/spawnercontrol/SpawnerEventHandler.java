@@ -5,20 +5,26 @@ import ladysnake.spawnercontrol.config.SpawnerConfig;
 import ladysnake.spawnercontrol.controlledspawner.*;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockMobSpawner;
+import net.minecraft.entity.EntityList;
 import net.minecraft.entity.EntityLiving;
 import net.minecraft.entity.monster.IMob;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTBase;
 import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.nbt.NBTTagLong;
 import net.minecraft.tileentity.MobSpawnerBaseLogic;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.tileentity.TileEntityMobSpawner;
 import net.minecraft.util.EnumParticleTypes;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.MathHelper;
+import net.minecraft.world.World;
 import net.minecraft.world.WorldServer;
 import net.minecraftforge.event.AttachCapabilitiesEvent;
 import net.minecraftforge.event.entity.living.LivingDeathEvent;
+import net.minecraftforge.event.entity.living.LivingExperienceDropEvent;
 import net.minecraftforge.event.entity.living.LivingSpawnEvent;
 import net.minecraftforge.event.world.BlockEvent;
 import net.minecraftforge.fml.common.FMLCommonHandler;
@@ -28,8 +34,10 @@ import net.minecraftforge.fml.common.eventhandler.EventPriority;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
 import net.minecraftforge.fml.relauncher.Side;
+import net.minecraftforge.fml.server.FMLServerHandler;
 
 import java.util.*;
+import java.util.concurrent.ExecutionException;
 
 /**
  * Class handling spawner-related events
@@ -167,14 +175,40 @@ public class SpawnerEventHandler {
 
     @SubscribeEvent
     public static void onLivingDeath(LivingDeathEvent event) {
-        long spawnerPos = event.getEntityLiving().getEntityData().getLong(ControlledSpawnerLogic.NBT_TAG_SPAWNER_POS);
-        if (spawnerPos != 0) {
-            TileEntity tile = event.getEntityLiving().getEntityWorld().getTileEntity(BlockPos.fromLong(spawnerPos));
+        NBTTagCompound data = event.getEntityLiving().getEntityData();
+        if (data.hasKey(ControlledSpawnerLogic.NBT_TAG_SPAWNER_POS)) {
+            NBTBase nbt = event.getEntityLiving().getEntityData().getTag(ControlledSpawnerLogic.NBT_TAG_SPAWNER_POS);
+            World world;
+            long spawnerPos;
+            if (nbt instanceof NBTTagCompound) {
+                spawnerPos = ((NBTTagCompound) nbt).getLong("pos");
+                world = FMLServerHandler.instance().getServer().getWorld(((NBTTagCompound) nbt).getInteger("dimension"));
+            } else if (nbt instanceof NBTTagLong) {
+                spawnerPos = ((NBTTagLong) nbt).getLong();
+                world = event.getEntity().getEntityWorld();
+            } else return;
+            TileEntity tile = world.getTileEntity(BlockPos.fromLong(spawnerPos));
             if (tile instanceof TileEntityMobSpawner) {
                 TileEntityMobSpawner spawner = (TileEntityMobSpawner) tile;
                 IControllableSpawner handler = CapabilityControllableSpawner.getHandler(spawner);
                 if (handler.getConfig().incrementOnMobDeath)
                     handler.incrementSpawnedMobsCount();
+            }
+        }
+    }
+
+    @SubscribeEvent
+    public static void onLivingExperienceDrop(LivingExperienceDropEvent event) {
+        SpawnerConfig cfg = SpawnerUtil.getConfig(event.getEntityLiving().getEntityData().getTag(ControlledSpawnerLogic.NBT_TAG_SPAWNER_POS));
+        if (cfg != null) {
+            try {
+                ResourceLocation rl = EntityList.getKey(event.getEntity());
+                if (rl != null) {
+                    SpawnerConfig.MobLoot.MobLootEntry entry = cfg.mobLoot.lootEntries.get(rl);
+                    event.setDroppedExperience(MathHelper.floor(event.getOriginalExperience() * entry.xpMultiplier + entry.flatXpIncrease + (event.getDroppedExperience() - event.getOriginalExperience())));
+                }
+            } catch (ExecutionException e) {
+                SpawnerControl.LOGGER.error("Error while handling spawned experience drop", e);
             }
         }
     }

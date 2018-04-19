@@ -1,11 +1,19 @@
 package ladysnake.spawnercontrol.config;
 
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
+import ladysnake.spawnercontrol.SpawnerControl;
+import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.common.config.Config;
 
 public class SpawnerConfig {
 
     @Config.Comment("Regroups config options aiming to alter mob spawners spawning conditions")
     public SpawnConditions spawnConditions = new SpawnConditions();
+
+    @Config.Comment("Groups config options related to custom drops from mobs spawned by this spawner type")
+    public MobLoot mobLoot = new MobLoot();
 
     @Config.Comment("When a spawner has spawned this number of mobs over this lifetime, it will get broken automatically")
     public int mobThreshold = 100;
@@ -39,5 +47,46 @@ public class SpawnerConfig {
 
         @Config.Comment("If forceSpawnerMobSpawns is enabled, will prevent hostile mobs from spawning in daylight")
         public boolean checkSunlight = true;
+    }
+
+    public static class MobLoot {
+
+        public MobLootEntry defaultValues = new MobLootEntry(1, 0);
+
+        @Config.Comment({"Individual xp drop multiplier configuration for mobs spawned by this spawner type", "Format: 'modid:entity:xpMultiplier(:flatXp)' (flatXp is optional)"})
+        public String[] xpMultipliers = new String[0];
+
+        @Config.Ignore
+        public LoadingCache<ResourceLocation, MobLootEntry> lootEntries = CacheBuilder.newBuilder().build(CacheLoader.from(rl -> {
+            if (rl == null) return defaultValues;
+            for (String s : xpMultipliers) {
+                String[] split = s.split(":");
+                if (split[0].equals(rl.getResourcePath()) && split[1].equals(rl.getResourceDomain())) {
+                    try {
+                        float xpMultiplier = Float.parseFloat(split[2]);
+                        int flatXpIncrease = split.length > 3 ? Integer.parseInt(split[3]) : defaultValues.flatXpIncrease;
+                        return new MobLootEntry(xpMultiplier, flatXpIncrease);
+                    } catch (NumberFormatException e) {
+                        SpawnerControl.LOGGER.warn("Bad mob spawner loot config option : {}", s);
+                    }
+                }
+            }
+            return defaultValues;
+        }));
+
+        public static class MobLootEntry {
+
+            public MobLootEntry(float defaultXpMultiplier, int flatXpIncrease) {
+                this.xpMultiplier = defaultXpMultiplier;
+                this.flatXpIncrease = flatXpIncrease;
+            }
+
+            @Config.Comment("xp drop multiplier for mobs spawned by this spawner type")
+            public float xpMultiplier;
+
+            @Config.Comment("Flat xp modifier that will be added to mobs spawned by this spawner type")
+            public int flatXpIncrease;
+
+        }
     }
 }

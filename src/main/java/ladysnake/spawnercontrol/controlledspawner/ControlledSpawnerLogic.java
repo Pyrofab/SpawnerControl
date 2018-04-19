@@ -116,7 +116,10 @@ public class ControlledSpawnerLogic extends MobSpawnerBaseLogic {
                             entityliving.spawnExplosionParticle();
                         }
 
-                        entity.getEntityData().setLong(NBT_TAG_SPAWNER_POS, this.getSpawnerPosition().toLong());
+                        NBTTagCompound compound = new NBTTagCompound();
+                        compound.setInteger("dimension", this.getSpawnerWorld().provider.getDimension());
+                        compound.setLong("pos", this.getSpawnerPosition().toLong());
+                        entity.getEntityData().setTag(NBT_TAG_SPAWNER_POS, compound);
 
 
                         flag = true;

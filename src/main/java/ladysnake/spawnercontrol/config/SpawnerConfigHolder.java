@@ -28,6 +28,7 @@ public class SpawnerConfigHolder {
         try {
             // sync the object with the config
             CustomSpawnersConfig.configManager$sync.invoke(configuration, SpawnerConfig.class, SpawnerControl.MOD_ID, name, true, configObject);
+            this.configObject.mobLoot.lootEntries.invalidateAll();
             configuration.save();
         } catch (Throwable throwable) {
             SpawnerControl.LOGGER.error("Exception while synchronizing custom spawner config", throwable);
