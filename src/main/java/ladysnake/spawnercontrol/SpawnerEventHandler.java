@@ -111,7 +111,7 @@ public class SpawnerEventHandler {
         // only affect spawner-caused spawns
         if (event.getSpawner() != null) {
             // if there is no tile entity nor spawner entity, the spawner was very likely destroyed by a previous spawn of the same batch
-            if (event.getSpawner().getSpawnerWorld().getTileEntity(event.getSpawner().getSpawnerPosition()) == null && event.getSpawner().getSpawnerEntity() == null) {
+            if (event.getWorld().getTileEntity(event.getSpawner().getSpawnerPosition()) == null && event.getSpawner().getSpawnerEntity() == null) {
                 event.setResult(Event.Result.DENY);
             }
             IControllableSpawner handler = SpawnerUtil.getHandlerIfAffected(event.getWorld(), event.getSpawner().getSpawnerPosition());
