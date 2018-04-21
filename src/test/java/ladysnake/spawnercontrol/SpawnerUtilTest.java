@@ -35,7 +35,6 @@ public class SpawnerUtilTest {
 
     @After
     public void tearDown() {
-        SpawnerEventHandler.pendingSpawners.clear();
         SpawnerEventHandler.allSpawners.clear();
     }
 

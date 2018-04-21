@@ -5,6 +5,7 @@ import ladysnake.spawnercontrol.config.MSCConfig;
 import ladysnake.spawnercontrol.config.SpawnerConfig;
 import net.minecraft.nbt.NBTBase;
 import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.tileentity.MobSpawnerBaseLogic;
 import net.minecraft.tileentity.TileEntityMobSpawner;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.ResourceLocation;
@@ -51,11 +52,16 @@ public class CapabilityControllableSpawner {
                     spawner.getWorld().setBlockToAir(spawner.getPos());
                 return true;
             }
-            if (spawner.spawnerLogic instanceof ControlledSpawnerLogic)
-                ((ControlledSpawnerLogic) spawner.spawnerLogic).adjustDelayAfterSpawn(cfg.spawnRateModifier);
-            else
-                SpawnerControl.LOGGER.warn("A mob spawned by the mod points toward an unmodified spawner, skipping");
+            this.adjustDelayAfterSpawn(spawner.getSpawnerBaseLogic(), cfg.spawnRateModifier);
             return false;
+        }
+
+        /**
+         * Should be called after every spawn to tweak the cooldown according to the config
+         */
+        protected void adjustDelayAfterSpawn(MobSpawnerBaseLogic spawnerBaseLogic, double spawnRateModifier) {
+            spawnerBaseLogic.minSpawnDelay *= spawnRateModifier;
+            spawnerBaseLogic.maxSpawnDelay *= spawnRateModifier;
         }
 
         @Override

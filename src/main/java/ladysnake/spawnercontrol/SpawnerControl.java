@@ -33,7 +33,8 @@ import javax.annotation.Nonnull;
         name = SpawnerControl.MOD_NAME,
         version = SpawnerControl.VERSION,
         acceptedMinecraftVersions = SpawnerControl.ACCEPTED_VERSIONS,
-        guiFactory = "ladysnake.spawnercontrol.client.MSCConfigFactory"
+        guiFactory = "ladysnake.spawnercontrol.client.MSCConfigFactory",
+        dependencies = "required:forge@[14.23.2.2596,);"
 )
 public class SpawnerControl {
 

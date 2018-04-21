@@ -2,7 +2,10 @@ package ladysnake.spawnercontrol.config;
 
 import ladysnake.spawnercontrol.SpawnerControl;
 import net.minecraft.util.ResourceLocation;
-import net.minecraftforge.common.config.*;
+import net.minecraftforge.common.config.ConfigCategory;
+import net.minecraftforge.common.config.ConfigManager;
+import net.minecraftforge.common.config.Configuration;
+import net.minecraftforge.common.config.Property;
 import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
 
 import java.io.File;
@@ -19,13 +22,10 @@ import java.util.regex.Pattern;
  * This class is tasked to dynamically generate configuration options for each custom spawner added by the user <br/>
  * <p>
  * Constants used by the config systems are also stored here to avoid being considered as config options in annotated classes <br/>
- * TODO move MAIN_CONFIG_FILE and VANILLA_CONFIG_CATEGORY to {@link MSCConfig} in 1.13, using {@link Config.Ignore}
  * </p>
  * @see MSCConfig#customSpawners
  */
 public class CustomSpawnersConfig {
-    public static final String MAIN_CONFIG_FILE = SpawnerControl.MOD_ID + "/" + SpawnerControl.MOD_ID;
-    public static final String VANILLA_CONFIG_CATEGORY = Configuration.CATEGORY_GENERAL + Configuration.CATEGORY_SPLITTER + "vanillaSpawnerConfig";
     private static final String CUSTOM_CONFIG_FOLDER = SpawnerControl.MOD_ID + "/" + "custom_spawners";
     private static final Pattern VALIDATION_PATTERN = Pattern.compile("^[\\w\\s\\d]+$");
     /**
@@ -61,10 +61,10 @@ public class CustomSpawnersConfig {
                 // Get the specific configuration object used by forge to change its validation pattern
                 Method getConfiguration = ConfigManager.class.getDeclaredMethod("getConfiguration", String.class, String.class);
                 getConfiguration.setAccessible(true);
-                mainConfiguration = (Configuration) getConfiguration.invoke(null, SpawnerControl.MOD_ID, MAIN_CONFIG_FILE);
+                mainConfiguration = (Configuration) getConfiguration.invoke(null, SpawnerControl.MOD_ID, MSCConfig.MAIN_CONFIG_FILE);
             } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {
                 SpawnerControl.LOGGER.error("Error while attempting to access spawner control's configuration", e);
-                return new Configuration(new File(configDir, MAIN_CONFIG_FILE + ".cfg"));
+                return new Configuration(new File(configDir, MSCConfig.MAIN_CONFIG_FILE + ".cfg"));
             }
         }
         return mainConfiguration;
@@ -79,7 +79,7 @@ public class CustomSpawnersConfig {
         for (String name : customSpawnersProp.getStringList()) {
             // as the validation pattern wasn't used when reading the values, it can contain garbage from the file
             if (VALIDATION_PATTERN.matcher(name).matches())
-                generateConfig(baseConfig.getCategory(VANILLA_CONFIG_CATEGORY), name);
+                generateConfig(baseConfig.getCategory(MSCConfig.VANILLA_CONFIG_CATEGORY), name);
             else
                 SpawnerControl.LOGGER.warn("Invalid custom spawner name {}, skipping", name);
         }
