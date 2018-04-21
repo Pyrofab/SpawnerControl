@@ -7,6 +7,7 @@ import net.minecraftforge.common.config.ConfigManager;
 import net.minecraftforge.common.config.Configuration;
 import net.minecraftforge.common.config.Property;
 import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
+import net.minecraftforge.fml.relauncher.ReflectionHelper;
 
 import java.io.File;
 import java.lang.invoke.MethodHandle;
@@ -94,12 +95,30 @@ public class CustomSpawnersConfig {
         ConfigCategory category = config.getCategory(name);
         // duplicate the config from the vanilla spawner
         baseCategory.getValues().forEach((key, value) -> {
-            if (!category.containsKey(key)) // don't overwrite existing values
-                category.put(key, value);
+            // don't overwrite existing values
+            if (!category.containsKey(key)) {
+                category.put(key, clone(value));
+            }
         });
         SpawnerConfigHolder holder = new SpawnerConfigHolder(config, name);
         holder.sync();
         customSpawnerConfigs.put(holder.getRegistryName(), holder);
+    }
+
+    private static Property clone(Property prop) {
+        Property cln;
+        if (prop.isList()) {
+            cln = new Property(prop.getName(), prop.getDefaults(), prop.getType(), prop.getLanguageKey());
+        } else {
+            cln = new Property(prop.getName(), prop.getDefault(), prop.getType(), prop.getValidValues(), prop.getLanguageKey());
+        }
+        cln.setValue(prop.getString());
+        cln.setValues(prop.getStringList());
+        // using reflection because the setters are quite inappropriate
+        ReflectionHelper.setPrivateValue(Property.class, cln, prop.getMinValue(), "minValue");
+        ReflectionHelper.setPrivateValue(Property.class, cln, prop.getMaxValue(), "maxValue");
+        cln.setComment(prop.getComment());
+        return cln;
     }
 
 }
