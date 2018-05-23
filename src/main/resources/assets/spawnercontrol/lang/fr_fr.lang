@@ -1,0 +1,9 @@
+tile.msc.controlled_spawner.name=Spawner %s
+itemGroup.spawnercontrol=Mob Spawner Control
+spawnercontrol.general.vanillaspawnerconfig=Config du Spawner Vanilla
+spawnercontrol.general.customspawners=Liste de Spawners Personnalisés
+spawnercontrol.general.altervanillaspawner=Altérer le Spawner Vanilla
+spawnercontrol.general.makecreativetab=Générer un onglet créatif
+spawnercontrol.general.custom_spawners=Config des Spawners Personnalisés
+spawnercontrol.general.custom_spawners.tooltip=Contient des propriétés de configuration pour chaque spawner ajouté via customSpawners
+tile.msc.za_warudo.name=時を止まれ

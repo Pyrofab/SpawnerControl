@@ -1,0 +1,9 @@
+tile.msc.controlled_spawner.name=Спавнер %s
+itemGroup.spawnercontrol=Контроль Сравна
+spawnercontrol.general.vanillaspawnerconfig=Параметры ванильного спавнера
+spawnercontrol.general.customspawners=Список пользовательских спавнеров
+spawnercontrol.general.altervanillaspawner=Изменить ванильный спавнер
+spawnercontrol.general.makecreativetab=Создать влакдку в меню Креатива
+spawnercontrol.general.custom_spawners=Параментры пользовательских спавнеров
+spawnercontrol.general.custom_spawners.tooltip=Содержит параметры конфигурции для каждого спавнера, добавленного при помощи customSpawners
+tile.msc.za_warudo.name=時を止まれ
