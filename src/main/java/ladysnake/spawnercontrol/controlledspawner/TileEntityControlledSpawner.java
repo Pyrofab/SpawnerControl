@@ -16,7 +16,6 @@ public class TileEntityControlledSpawner extends TileEntityMobSpawner {
     public TileEntityControlledSpawner() {
         super();
         handler = new ControlledSpawnerHandler();
-        this.spawnerLogic = new ControlledSpawnerLogic(this);
     }
 
     @Nullable

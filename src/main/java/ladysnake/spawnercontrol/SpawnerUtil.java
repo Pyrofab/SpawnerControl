@@ -11,7 +11,7 @@ import net.minecraft.tileentity.TileEntity;
 import net.minecraft.tileentity.TileEntityMobSpawner;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
-import net.minecraftforge.fml.server.FMLServerHandler;
+import net.minecraftforge.fml.common.FMLCommonHandler;
 
 import javax.annotation.Nullable;
 
@@ -23,10 +23,10 @@ public class SpawnerUtil {
         World world;
         if (nbt instanceof NBTTagCompound && ((NBTTagCompound) nbt).hasKey("pos")) {
             spawnerPos = ((NBTTagCompound) nbt).getLong("pos");
-            world = FMLServerHandler.instance().getServer().getWorld(((NBTTagCompound) nbt).getInteger("dimension"));
+            world = FMLCommonHandler.instance().getMinecraftServerInstance().getWorld(((NBTTagCompound) nbt).getInteger("dimension"));
         } else if (nbt instanceof NBTTagLong) {     // this is only here to prevent crashes with old worlds. It is not reliable.
             spawnerPos = ((NBTTagLong) nbt).getLong();
-            world = FMLServerHandler.instance().getServer().getWorld(0);
+            world = FMLCommonHandler.instance().getMinecraftServerInstance().getWorld(0);
         } else return null;
         return getConfig(world, BlockPos.fromLong(spawnerPos));
     }

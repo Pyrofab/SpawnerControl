@@ -12,9 +12,14 @@ import java.io.IOException;
 import java.util.Map;
 
 @SuppressWarnings("WeakerAccess")
-@Config(modid = SpawnerControl.MOD_ID, name = CustomSpawnersConfig.MAIN_CONFIG_FILE)
+@Config(modid = SpawnerControl.MOD_ID, name = MSCConfig.MAIN_CONFIG_FILE)
 @Mod.EventBusSubscriber(modid = SpawnerControl.MOD_ID)
 public class MSCConfig {
+
+    @Config.Ignore
+    public static final String MAIN_CONFIG_FILE = SpawnerControl.MOD_ID + "/" + SpawnerControl.MOD_ID;
+    @Config.Ignore
+    public static final String VANILLA_CONFIG_CATEGORY = Configuration.CATEGORY_GENERAL + Configuration.CATEGORY_SPLITTER + "vanillaSpawnerConfig";
 
     @Config.RequiresWorldRestart
     @Config.Comment("If set to false, vanilla spawners won't be affected by the mod. This mod's own spawners will be the only ones affected by this config")
@@ -39,15 +44,17 @@ public class MSCConfig {
         Configuration newConfig = CustomSpawnersConfig.getMainConfiguration();
         if (oldConfig.getLoadedConfigVersion() == null) { // pre-1.4 config
             ConfigCategory general = oldConfig.getCategory(Configuration.CATEGORY_GENERAL);
-            ConfigCategory vanillaSpawner = newConfig.getCategory(CustomSpawnersConfig.VANILLA_CONFIG_CATEGORY);
+            ConfigCategory vanillaSpawner = newConfig.getCategory(VANILLA_CONFIG_CATEGORY);
             // move properties from general to vanillaSpawnerConfig
             copyConfigCategory(general, vanillaSpawner);
 
             // hardcoded because old configs only have 1 subcategory
-            ConfigCategory oldSpawnConditions = general.getChildren().iterator().next();
-            vanillaSpawner.getChildren().stream()
-                    .filter(child -> child.getName().equals(oldSpawnConditions.getName()))
-                    .findAny().ifPresent(spawnConditions -> copyConfigCategory(oldSpawnConditions, spawnConditions));
+            if (general.getChildren().size() > 0) {
+                ConfigCategory oldSpawnConditions = general.getChildren().iterator().next();
+                vanillaSpawner.getChildren().stream()
+                        .filter(child -> child.getName().equals(oldSpawnConditions.getName()))
+                        .findAny().ifPresent(spawnConditions -> copyConfigCategory(oldSpawnConditions, spawnConditions));
+            }
             newConfig.save();
             try {
                 Files.move(oldConfigFile, new File(CustomSpawnersConfig.configDir, SpawnerControl.MOD_ID + "_old.cfg"));
@@ -55,7 +62,6 @@ public class MSCConfig {
                 e.printStackTrace();
             }
         }
-
     }
 
     private static void copyConfigCategory(ConfigCategory oldConf, ConfigCategory newConf) {
