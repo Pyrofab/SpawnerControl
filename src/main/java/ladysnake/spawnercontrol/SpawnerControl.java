@@ -34,7 +34,7 @@ import javax.annotation.Nonnull;
         version = SpawnerControl.VERSION,
         acceptedMinecraftVersions = SpawnerControl.ACCEPTED_VERSIONS,
         guiFactory = "ladysnake.spawnercontrol.client.MSCConfigFactory",
-        dependencies = "required:forge@[14.23.2.2596,);",
+        dependencies = "required-after:forge@[14.23.2.2596,);",
         acceptableRemoteVersions = "*"
 )
 public class SpawnerControl {

@@ -108,13 +108,14 @@ public class SpawnerEventHandler {
      */
     @SubscribeEvent(priority = EventPriority.LOWEST)
     public static void onCheckSpawnerSpawn(LivingSpawnEvent.CheckSpawn event) {
+        MobSpawnerBaseLogic spawner = event.getSpawner();
         // only affect spawner-caused spawns
-        if (event.getSpawner() != null) {
+        if (spawner != null) {
             // if there is no tile entity nor spawner entity, the spawner was very likely destroyed by a previous spawn of the same batch
-            if (event.getWorld().getTileEntity(event.getSpawner().getSpawnerPosition()) == null && event.getSpawner().getSpawnerEntity() == null) {
+            if (event.getWorld().getTileEntity(spawner.getSpawnerPosition()) == null && spawner.getSpawnerEntity() == null) {
                 event.setResult(Event.Result.DENY);
             }
-            IControllableSpawner handler = SpawnerUtil.getHandlerIfAffected(event.getWorld(), event.getSpawner().getSpawnerPosition());
+            IControllableSpawner handler = SpawnerUtil.getHandlerIfAffected(event.getWorld(), spawner.getSpawnerPosition());
             if (handler == null) return;
 
             SpawnerConfig cfg = handler.getConfig();
@@ -137,6 +138,18 @@ public class SpawnerEventHandler {
             // increments spawn counts and prevents spawns if over the limit
             if (canSpawn) {
                 if (handler.canSpawn()) {
+                    if (!handler.getConfig().incrementOnMobDeath)
+                        handler.incrementSpawnedMobsCount();
+
+                    NBTTagCompound compound = new NBTTagCompound();
+                    World spawnerWorld = spawner.getSpawnerWorld();
+                    // When unit testing, the world will be null
+                    //noinspection ConstantConditions
+                    if (spawnerWorld != null) {
+                        compound.setInteger("dimension", spawnerWorld.provider.getDimension());
+                        compound.setLong("pos", spawner.getSpawnerPosition().toLong());
+                        event.getEntity().getEntityData().setTag(NBT_TAG_SPAWNER_POS, compound);
+                    }
                     event.setResult(Event.Result.ALLOW);
                 } else {
                     event.setResult(Event.Result.DENY);
@@ -152,16 +165,8 @@ public class SpawnerEventHandler {
         if (event.getSpawner() == null) return;     // this can't happen currently but it will with forge's event
         IControllableSpawner handler = SpawnerUtil.getHandlerIfAffected(event.getWorld(), event.getSpawner().getSpawnerPosition());
         if (handler == null) return;
-        if (handler.canSpawn()) {
-            if (!handler.getConfig().incrementOnMobDeath)
-                handler.incrementSpawnedMobsCount();
-
-            NBTTagCompound compound = new NBTTagCompound();
-            compound.setInteger("dimension", event.getSpawner().getSpawnerWorld().provider.getDimension());
-            compound.setLong("pos", event.getSpawner().getSpawnerPosition().toLong());
-            event.getEntity().getEntityData().setTag(NBT_TAG_SPAWNER_POS, compound);
-            event.setResult(Event.Result.ALLOW);
-        } else {
+        // just to make sure
+        if (!handler.canSpawn()) {
             event.setResult(Event.Result.DENY);
         }
     }
