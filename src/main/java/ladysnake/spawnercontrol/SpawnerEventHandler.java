@@ -215,7 +215,7 @@ public class SpawnerEventHandler {
         }
     }
 
-    @SubscribeEvent
+    @SubscribeEvent(priority = EventPriority.LOWEST)
     public static void onLivingItemDrop(LivingDropsEvent event) {
         EntityLivingBase livingBase = event.getEntityLiving();
         SpawnerConfig cfg = SpawnerUtil.getConfig(livingBase.getEntityData().getTag(NBT_TAG_SPAWNER_POS));
