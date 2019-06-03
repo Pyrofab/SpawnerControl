@@ -245,7 +245,7 @@ public class SpawnerEventHandler {
                     for (String s : entry.addedItems)
                     {
                         String[] split = s.split(":");
-                        if (split.length < 5 || world.rand.nextInt(Integer.parseInt(split[4])) == 0) {
+                        if (split.length < 5 || world.rand.nextFloat() < Double.parseDouble(split[4])) {
                             ResourceLocation itemRL = new ResourceLocation(split[0], split[1]);
                             Item item = ForgeRegistries.ITEMS.getValue(itemRL);
                             if (item == null)
