@@ -51,7 +51,7 @@ public class SpawnerConfig {
 
     public static class MobLoot {
 
-        public MobLootEntry defaultValues = new MobLootEntry(1, 0);
+        public MobLootEntry defaultValues = new MobLootEntry(1, 0, false, new String[0], new String[0]);
 
         @Config.Comment({"Individual xp drop multiplier configuration for mobs spawned by this spawner type", "Format: 'modid:entity:xpMultiplier(:flatXp)' (flatXp is optional)"})
         public String[] xpMultipliers = new String[0];
@@ -65,7 +65,7 @@ public class SpawnerConfig {
                     try {
                         float xpMultiplier = Float.parseFloat(split[2]);
                         int flatXpIncrease = split.length > 3 ? Integer.parseInt(split[3]) : defaultValues.flatXpIncrease;
-                        return new MobLootEntry(xpMultiplier, flatXpIncrease);
+                        return new MobLootEntry(xpMultiplier, flatXpIncrease, false, new String[0], new String[0]);
                     } catch (NumberFormatException e) {
                         SpawnerControl.LOGGER.warn("Bad mob spawner loot config option : {}", s);
                     }
@@ -76,9 +76,13 @@ public class SpawnerConfig {
 
         public static class MobLootEntry {
 
-            public MobLootEntry(float defaultXpMultiplier, int flatXpIncrease) {
+            public MobLootEntry(float defaultXpMultiplier, int flatXpIncrease, boolean removeAllItems, String[] removedItems, String[] addedItems) {
                 this.xpMultiplier = defaultXpMultiplier;
                 this.flatXpIncrease = flatXpIncrease;
+
+                this.removeAllItems = removeAllItems;
+                this.removedItems = removedItems;
+                this.addedItems = addedItems;
             }
 
             @Config.Comment("xp drop multiplier for mobs spawned by this spawner type")
@@ -87,6 +91,14 @@ public class SpawnerConfig {
             @Config.Comment("Flat xp modifier that will be added to mobs spawned by this spawner type")
             public int flatXpIncrease;
 
+            @Config.Comment({"Remove all existing item drops from the mobs spawned by this spawner", "'Added Items' are added afterwards"})
+            public boolean removeAllItems;
+
+            @Config.Comment({"Which items to remove from the drops of the mobs spawned", "Format: 'modid:item(:meta)' (meta is optional)", "If 'Remove All Items' is true, this does nothing"})
+            public String[] removedItems;
+
+            @Config.Comment({"Which items to add to the drops of the mobs spawned", "Format: 'modid:item(:count(:meta(:chance)))' (count, meta and chance are optional)"})
+            public String[] addedItems;
         }
     }
 }
