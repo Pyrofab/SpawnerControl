@@ -7,6 +7,9 @@ import ladysnake.spawnercontrol.SpawnerControl;
 import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.common.config.Config;
 
+import java.util.Arrays;
+import java.util.List;
+
 public class SpawnerConfig {
 
     @Config.Comment("Regroups config options aiming to alter mob spawners spawning conditions")
@@ -56,22 +59,59 @@ public class SpawnerConfig {
         @Config.Comment({"Individual xp drop multiplier configuration for mobs spawned by this spawner type", "Format: 'modid:entity:xpMultiplier(:flatXp)' (flatXp is optional)"})
         public String[] xpMultipliers = new String[0];
 
+        @Config.Comment({"Individual item drop removal configuration for mobs spawned by this spawner type", "Format: 'modid:entity(,modid:item(:meta))(,modid:item(:meta))...'", "Anything in parenthesis is optional, and you can enter as many items as you want", "If don't enter any items, all item drops are removed from the mob"})
+        public String[] itemDropRemovals = new String[0];
+
+        @Config.Comment({"Individual item drop addition configuration for mobs spawned by this spawner type", "Format: 'modid:entity,modid:item(:count(:meta(:chance)))(,modid:item(:count(:meta(:chance))))...'", "Anything in parenthesis is optional, and you can enter as many items as you want", "Eg: minecraft:skeleton,minecraft:dye:100:15:0.5,minecraft:bone:1:1:1"})
+        public String[] itemDropAdditions = new String[0];
+
         @Config.Ignore
         public LoadingCache<ResourceLocation, MobLootEntry> lootEntries = CacheBuilder.newBuilder().build(CacheLoader.from(rl -> {
             if (rl == null) return defaultValues;
+            float xpMultiplier = defaultValues.xpMultiplier;
+            int flatXpIncrease = defaultValues.flatXpIncrease;
+            boolean removeAllItems = defaultValues.removeAllItems;
+            List<String> removedItems = Arrays.asList(defaultValues.removedItems);
+            List<String> addedItems = Arrays.asList(defaultValues.addedItems);
             for (String s : xpMultipliers) {
                 String[] split = s.split(":");
                 if (split[0].equals(rl.getResourcePath()) && split[1].equals(rl.getResourceDomain())) {
                     try {
-                        float xpMultiplier = Float.parseFloat(split[2]);
-                        int flatXpIncrease = split.length > 3 ? Integer.parseInt(split[3]) : defaultValues.flatXpIncrease;
-                        return new MobLootEntry(xpMultiplier, flatXpIncrease, false, new String[0], new String[0]);
+                        xpMultiplier = Float.parseFloat(split[2]);
+                        flatXpIncrease = split.length > 3 ? Integer.parseInt(split[3]) : defaultValues.flatXpIncrease;
                     } catch (NumberFormatException e) {
                         SpawnerControl.LOGGER.warn("Bad mob spawner loot config option : {}", s);
                     }
+                    break;
                 }
             }
-            return defaultValues;
+            for (String s : itemDropRemovals) {
+                String[] split = s.split(",");
+                String[] mobSplit = split[0].split(":");
+                if (mobSplit[0].equals(rl.getResourcePath()) && mobSplit[1].equals(rl.getResourceDomain())) {
+                    try {
+                        removedItems = Arrays.asList(split);
+                        removedItems.remove(0);
+                        removeAllItems = removedItems.size() == 0;
+                    } catch (Exception e) {
+                        SpawnerControl.LOGGER.warn("Bad mob spawner loot config option : {}", s);
+                    }
+                    break;
+                }
+            }
+            for (String s : itemDropAdditions) {
+                String[] split = s.split(":");
+                if (split[0].equals(rl.getResourcePath()) && split[1].equals(rl.getResourceDomain())) {
+                    try {
+                        addedItems = Arrays.asList(split);
+                        addedItems.remove(0);
+                    } catch (Exception e) {
+                        SpawnerControl.LOGGER.warn("Bad mob spawner loot config option : {}", s);
+                    }
+                    break;
+                }
+            }
+            return new MobLootEntry(xpMultiplier, flatXpIncrease, removeAllItems, removedItems.toArray(new String[0]), addedItems.toArray(new String[0]));
         }));
 
         public static class MobLootEntry {
