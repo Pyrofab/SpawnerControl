@@ -59,7 +59,7 @@ public class SpawnerConfig {
         @Config.Comment({"Individual xp drop multiplier configuration for mobs spawned by this spawner type", "Format: 'modid:entity:xpMultiplier(:flatXp)' (flatXp is optional)"})
         public String[] xpMultipliers = new String[0];
 
-        @Config.Comment({"Individual item drop removal configuration for mobs spawned by this spawner type", "Format: 'modid:entity(,modid:item(:meta))(,modid:item(:meta))...'", "Anything in parenthesis is optional, and you can enter as many items as you want", "If don't enter any items, all item drops are removed from the mob"})
+        @Config.Comment({"Individual item drop removal configuration for mobs spawned by this spawner type", "Format: 'modid:entity(,modid:item(:meta))(,modid:item(:meta))...'", "Anything in parenthesis is optional, and you can enter as many items as you want", "If don't enter any items, all item drops are removed from the mob (itemDropAdditions are added afterwards)"})
         public String[] itemDropRemovals = new String[0];
 
         @Config.Comment({"Individual item drop addition configuration for mobs spawned by this spawner type", "Format: 'modid:entity,modid:item(:count(:meta(:chance)))(,modid:item(:count(:meta(:chance))))...'", "Anything in parenthesis is optional, and you can enter as many items as you want", "Eg: minecraft:skeleton,minecraft:dye:100:15:0.5,minecraft:bone:1:1:1"})
