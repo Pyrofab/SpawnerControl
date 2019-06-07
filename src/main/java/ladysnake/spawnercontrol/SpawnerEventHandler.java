@@ -249,7 +249,6 @@ public class SpawnerEventHandler {
                             ResourceLocation itemRL = new ResourceLocation(split[0], split[1]);
                             Item item = ForgeRegistries.ITEMS.getValue(itemRL);
                             if (item == null) {
-                                //Try/catch handles this if null
                                 item = Item.getItemFromBlock(ForgeRegistries.BLOCKS.getValue(itemRL));
                             }
                             if (item != Items.AIR) {
