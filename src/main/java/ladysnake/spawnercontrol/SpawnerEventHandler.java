@@ -14,6 +14,7 @@ import net.minecraft.entity.EntityLiving;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.item.EntityItem;
 import net.minecraft.entity.monster.IMob;
+import net.minecraft.init.Items;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTBase;
@@ -251,7 +252,11 @@ public class SpawnerEventHandler {
                                 //Try/catch handles this if null
                                 item = Item.getItemFromBlock(ForgeRegistries.BLOCKS.getValue(itemRL));
                             }
-                            drops.add(new EntityItem(world, x, y, z, new ItemStack(item, split.length < 3 ? 1 : Integer.parseInt(split[2]), split.length < 4 ? 0 : Integer.parseInt(split[3]))));
+                            if (item != Items.AIR) {
+                                drops.add(new EntityItem(world, x, y, z, new ItemStack(item, split.length < 3 ? 1 : Integer.parseInt(split[2]), split.length < 4 ? 0 : Integer.parseInt(split[3]))));
+                            } else {
+                                SpawnerControl.LOGGER.error("Error while handling spawned item drops");
+                            }
                         }
                     }
                 }
