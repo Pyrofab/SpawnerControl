@@ -244,7 +244,7 @@ public class SpawnerEventHandler {
                     for (String s : entry.addedItems)
                     {
                         String[] split = s.split(":");
-                        if (split.length < 5 || world.rand.nextFloat() < Double.parseDouble(split[4])) {
+                        if (split.length < 5 || world.rand.nextDouble() < Double.parseDouble(split[4])) {
                             ResourceLocation itemRL = new ResourceLocation(split[0], split[1]);
                             Item item = ForgeRegistries.ITEMS.getValue(itemRL);
                             if (item == null) {
@@ -306,7 +306,7 @@ public class SpawnerEventHandler {
                             int count = split.length >= 3 ? Integer.parseInt(split[2]) : 1;
                             int meta = split.length >= 4 ? Integer.parseInt(split[3]) : 0;
                             // default chance is 1
-                            if (split.length < 5 || event.getWorld().rand.nextFloat() < Double.parseDouble(split[4]))
+                            if (split.length < 5 || event.getWorld().rand.nextDouble() < Double.parseDouble(split[4]))
                                 drops.add(new ItemStack(item, count, meta));
                         }
                     } catch (NumberFormatException ignored) {
