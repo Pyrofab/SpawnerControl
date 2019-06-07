@@ -227,8 +227,7 @@ public class SpawnerEventHandler {
                     List<EntityItem> drops = event.getDrops();
                     if (entry.removeAllItems) {
                         drops.clear();
-                    }
-                    else {
+                    } else {
                         for (EntityItem drop : drops.toArray(new EntityItem[0])) {
                             ItemStack stack = drop.getItem();
                             for (String s : entry.removedItems) {
@@ -248,8 +247,7 @@ public class SpawnerEventHandler {
                         if (split.length < 5 || world.rand.nextFloat() < Double.parseDouble(split[4])) {
                             ResourceLocation itemRL = new ResourceLocation(split[0], split[1]);
                             Item item = ForgeRegistries.ITEMS.getValue(itemRL);
-                            if (item == null)
-                            {
+                            if (item == null) {
                                 //Try/catch handles this if null
                                 item = Item.getItemFromBlock(ForgeRegistries.BLOCKS.getValue(itemRL));
                             }
