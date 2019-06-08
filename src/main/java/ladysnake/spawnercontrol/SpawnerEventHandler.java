@@ -259,7 +259,7 @@ public class SpawnerEventHandler {
                         }
                     }
                 }
-            } catch (NumberFormatException e) {
+            } catch (NumberFormatException | ExecutionException e) {
                 SpawnerControl.LOGGER.error("Error while handling spawned item drops", e);
             }
         }
