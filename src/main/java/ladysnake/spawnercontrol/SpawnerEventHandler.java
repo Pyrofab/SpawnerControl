@@ -252,7 +252,9 @@ public class SpawnerEventHandler {
                                 item = Item.getItemFromBlock(ForgeRegistries.BLOCKS.getValue(itemRL));
                             }
                             if (item != Items.AIR) {
-                                drops.add(new EntityItem(world, x, y, z, new ItemStack(item, split.length < 3 ? 1 : Integer.parseInt(split[2]), split.length < 4 ? 0 : Integer.parseInt(split[3]))));
+                                int quantity = split.length < 3 ? 1 : Integer.parseInt(split[2]);
+                                int meta = split.length < 4 ? 0 : Integer.parseInt(split[3]);
+                                drops.add(new EntityItem(world, x, y, z, new ItemStack(item, quantity, meta)));
                             } else {
                                 SpawnerControl.LOGGER.error("Error while handling spawned item drops");
                             }
