@@ -1,16 +1,17 @@
 package ladysnake.spawnercontrol;
 
-import ladysnake.spawnercontrol.config.MSCConfig;
+import ladysnake.spawnercontrol.config.MscConfig;
 import ladysnake.spawnercontrol.controlledspawner.CapabilityControllableSpawner;
-import net.minecraft.entity.EntityLiving;
-import net.minecraft.entity.monster.EntityCreeper;
+import net.minecraft.entity.MobEntity;
+import net.minecraft.entity.SpawnReason;
+import net.minecraft.entity.monster.CreeperEntity;
+import net.minecraft.tileentity.ChestTileEntity;
+import net.minecraft.tileentity.MobSpawnerTileEntity;
 import net.minecraft.tileentity.TileEntity;
-import net.minecraft.tileentity.TileEntityChest;
-import net.minecraft.tileentity.TileEntityMobSpawner;
 import net.minecraft.world.World;
 import net.minecraftforge.event.AttachCapabilitiesEvent;
 import net.minecraftforge.event.entity.living.LivingSpawnEvent;
-import net.minecraftforge.fml.common.eventhandler.Event;
+import net.minecraftforge.eventbus.api.Event;
 import net.minecraftforge.fml.common.thread.SidedThreadGroups;
 import org.junit.After;
 import org.junit.Before;
@@ -21,7 +22,9 @@ import static org.mockito.Mockito.*;
 
 public class SpawnerEventHandlerTest {
 
-    private TileEntityMobSpawner vanillaSpawner;
+    private MobSpawnerTileEntity vanillaSpawner;
+    private MscConfig mainConfig = new MscConfig();
+    private SpawnerEventHandler handler = new SpawnerEventHandler(mainConfig);
 
     static {
         TestSetup.init();
@@ -29,12 +32,12 @@ public class SpawnerEventHandlerTest {
 
     @Before
     public void setUp() {
-        vanillaSpawner = TestSetup.makeSpawner(TileEntityMobSpawner::new);
+        vanillaSpawner = TestSetup.makeSpawner(MobSpawnerTileEntity::new);
     }
 
     @After
     public void tearDown() {
-        SpawnerEventHandler.allSpawners.clear();
+        handler.allSpawners.clear();
     }
 
     @Test
@@ -44,10 +47,10 @@ public class SpawnerEventHandlerTest {
 
     @Test
     public void onAttachCapabilities() throws InterruptedException {
-        TileEntity nonSpawnerTE = mock(TileEntityChest.class);
+        TileEntity nonSpawnerTE = mock(ChestTileEntity.class);
         AttachCapabilitiesEvent<TileEntity> event = new AttachCapabilitiesEvent<>(TileEntity.class, nonSpawnerTE);
         // need to call this in a separate thread because onAttachCapabilities checks for side using the thread
-        Thread serverThread = SidedThreadGroups.SERVER.newThread(() -> SpawnerEventHandler.onAttachCapabilities(event));
+        Thread serverThread = SidedThreadGroups.SERVER.newThread(() -> handler.onAttachCapabilities(event));
         serverThread.start();
         serverThread.join();
         assertFalse(event.getCapabilities().containsKey(CapabilityControllableSpawner.CAPABILITY_KEY));
@@ -55,10 +58,10 @@ public class SpawnerEventHandlerTest {
 
     @Test
     public void onAttachCapabilities2() throws InterruptedException {
-        TileEntity spawnerTE = mock(TileEntityMobSpawner.class);
+        TileEntity spawnerTE = mock(MobSpawnerTileEntity.class);
         AttachCapabilitiesEvent<TileEntity> event = new AttachCapabilitiesEvent<>(TileEntity.class, spawnerTE);
         // need to call this in a separate thread because onAttachCapabilities checks for side using the thread
-        Thread serverThread = SidedThreadGroups.SERVER.newThread(() -> SpawnerEventHandler.onAttachCapabilities(event));
+        Thread serverThread = SidedThreadGroups.SERVER.newThread(() -> handler.onAttachCapabilities(event));
         serverThread.start();
         serverThread.join();
         assertTrue(event.getCapabilities().containsKey(CapabilityControllableSpawner.CAPABILITY_KEY));
@@ -66,8 +69,8 @@ public class SpawnerEventHandlerTest {
 
     @Test
     public void onCheckNonSpawnerSpawn() {
-        LivingSpawnEvent.CheckSpawn event = new LivingSpawnEvent.CheckSpawn(null, null, 0, 0, 0, null);
-        SpawnerEventHandler.onCheckSpawnerSpawn(event);
+        LivingSpawnEvent.CheckSpawn event = new LivingSpawnEvent.CheckSpawn(null, null, 0, 0, 0, null, SpawnReason.NATURAL);
+        handler.onCheckSpawnerSpawn(event);
         assertEquals(Event.Result.DEFAULT, event.getResult());
     }
 
@@ -75,24 +78,24 @@ public class SpawnerEventHandlerTest {
     public void onCheckSpawnerSpawn() {
         World worldMock = mock(World.class);
         when(worldMock.getTileEntity(any())).thenReturn(vanillaSpawner);
-        MSCConfig.vanillaSpawnerConfig.spawnConditions.forceSpawnerAllSpawns = true;
-        EntityLiving entityMock = mock(EntityCreeper.class);
-        LivingSpawnEvent.CheckSpawn event = new LivingSpawnEvent.CheckSpawn(entityMock, worldMock, 0, 0, 0, vanillaSpawner.getSpawnerBaseLogic());
+        mainConfig.vanillaSpawnerConfig.spawnConditions.forceSpawnerAllSpawns = true;
+        MobEntity entityMock = mock(CreeperEntity.class);
+        LivingSpawnEvent.CheckSpawn event = new LivingSpawnEvent.CheckSpawn(entityMock, worldMock, 0, 0, 0, vanillaSpawner.getSpawnerBaseLogic(), SpawnReason.SPAWNER);
         event.setResult(Event.Result.DENY);
-        SpawnerEventHandler.onCheckSpawnerSpawn(event);
+        handler.onCheckSpawnerSpawn(event);
         assertEquals("A predefined result has been changed", Event.Result.DENY, event.getResult());
-        event = new LivingSpawnEvent.CheckSpawn(entityMock, worldMock, 0, 0, 0, vanillaSpawner.getSpawnerBaseLogic());
-        SpawnerEventHandler.onCheckSpawnerSpawn(event);
+        event = new LivingSpawnEvent.CheckSpawn(entityMock, worldMock, 0, 0, 0, vanillaSpawner.getSpawnerBaseLogic(), SpawnReason.SPAWNER);
+        handler.onCheckSpawnerSpawn(event);
         assertEquals("An entity that should not be able to spawn has been allowed", Event.Result.DENY, event.getResult());
-        when(entityMock.isNotColliding()).thenReturn(true);
-        event = new LivingSpawnEvent.CheckSpawn(entityMock, worldMock, 0, 0, 0, vanillaSpawner.getSpawnerBaseLogic());
-        SpawnerEventHandler.onCheckSpawnerSpawn(event);
+        when(entityMock.isNotColliding(worldMock)).thenReturn(true);
+        event = new LivingSpawnEvent.CheckSpawn(entityMock, worldMock, 0, 0, 0, vanillaSpawner.getSpawnerBaseLogic(), SpawnReason.SPAWNER);
+        handler.onCheckSpawnerSpawn(event);
         assertEquals("An entity that should be forced to spawn has been denied", Event.Result.ALLOW, event.getResult());
-        when(entityMock.getCanSpawnHere()).thenReturn(true);
-        MSCConfig.vanillaSpawnerConfig.spawnConditions.forceSpawnerAllSpawns = false;
-        MSCConfig.vanillaSpawnerConfig.spawnConditions.forceSpawnerMobSpawns = false;
-        event = new LivingSpawnEvent.CheckSpawn(entityMock, worldMock, 0, 0, 0, vanillaSpawner.getSpawnerBaseLogic());
-        SpawnerEventHandler.onCheckSpawnerSpawn(event);
+        when(entityMock.canSpawn(worldMock, SpawnReason.SPAWNER)).thenReturn(true);
+        mainConfig.vanillaSpawnerConfig.spawnConditions.forceSpawnerAllSpawns = false;
+        mainConfig.vanillaSpawnerConfig.spawnConditions.forceSpawnerMobSpawns = false;
+        event = new LivingSpawnEvent.CheckSpawn(entityMock, worldMock, 0, 0, 0, vanillaSpawner.getSpawnerBaseLogic(), SpawnReason.SPAWNER);
+        handler.onCheckSpawnerSpawn(event);
         assertEquals("An entity that should be able to spawn has been denied", Event.Result.ALLOW, event.getResult());
     }
 

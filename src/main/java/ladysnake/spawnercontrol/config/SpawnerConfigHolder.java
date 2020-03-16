@@ -3,78 +3,74 @@ package ladysnake.spawnercontrol.config;
 import ladysnake.spawnercontrol.SpawnerControl;
 import ladysnake.spawnercontrol.controlledspawner.BlockControlledSpawner;
 import ladysnake.spawnercontrol.controlledspawner.ItemBlockControlSpawner;
+import me.zeroeightsix.fiber.tree.Node;
 import net.minecraft.block.Block;
+import net.minecraft.block.Blocks;
 import net.minecraft.item.Item;
 import net.minecraft.util.ResourceLocation;
-import net.minecraftforge.common.config.ConfigCategory;
-import net.minecraftforge.common.config.Configuration;
-import net.minecraftforge.fml.common.registry.ForgeRegistries;
+import net.minecraftforge.fml.RegistryObject;
+import net.minecraftforge.registries.ForgeRegistries;
 
-public class SpawnerConfigHolder {
-    private Configuration configuration;
-    private String name;
-    private ResourceLocation registryName;
-    private SpawnerConfig configObject;
+import javax.annotation.Nonnull;
+import java.nio.file.Path;
 
-    SpawnerConfigHolder(Configuration configuration, String name) {
-        this.configuration = configuration;
-        this.name = name;
+public class SpawnerConfigHolder extends ConfigHolder<SpawnerConfig> {
+    private static final Path CUSTOM_SPAWNER_CONFIGS = MscConfigManager.CONFIG_ROOT.resolve("custom_spawners");
+
+    private final ResourceLocation registryName;
+    private final RegistryObject<Block> block;
+    private final RegistryObject<Item> item;
+
+    SpawnerConfigHolder(Node configuration, SpawnerConfig configObject) {
+        super(configuration, configObject);
         // avoid errors that would be way too stupid
-        this.registryName = new ResourceLocation(SpawnerControl.MOD_ID, name.replaceAll(" ", "_"));
-        this.configObject = new SpawnerConfig();
+        this.registryName = new ResourceLocation(SpawnerControl.MOD_ID, this.getName().replaceAll(" ", "_"));
+        this.block = RegistryObject.of(this.registryName, ForgeRegistries.BLOCKS);
+        this.item = RegistryObject.of(this.registryName, ForgeRegistries.ITEMS);
     }
 
-    public void sync() {
-        try {
-            // sync the object with the config
-            CustomSpawnersConfig.configManager$sync.invoke(configuration, SpawnerConfig.class, SpawnerControl.MOD_ID, name, true, configObject);
-            this.configObject.mobLoot.lootEntries.invalidateAll();
-            configuration.save();
-        } catch (Throwable throwable) {
-            SpawnerControl.LOGGER.error("Exception while synchronizing custom spawner config", throwable);
-        }
+    @Override
+    public void save() {
+        super.save();
+        this.configPojo.mobLoot.lootEntries.invalidateAll();
+    }
+
+    @Nonnull
+    @Override
+    protected Path getPath() {
+        return CUSTOM_SPAWNER_CONFIGS.resolve(this.config.getName() + ".json5");
+    }
+
+    public Block createBlock() {
+        return new BlockControlledSpawner(Block.Properties.from(Blocks.SPAWNER), this.getConfigObject(), this.getName())
+                .setRegistryName(this.registryName);
+    }
+
+    public Item createItem(Item.Properties properties) {
+        return new ItemBlockControlSpawner(this.getBlock(), properties)
+                .setRegistryName(this.registryName);
     }
 
     /**
-     *
-     * @return a new {@link BlockControlledSpawner} instance using this config holder and named accordingly
+     * @return a {@link BlockControlledSpawner} instance using this config holder and named accordingly
      */
-    public Block createBlock() {
-        return new BlockControlledSpawner(getConfigObject())
-                .setRegistryName(this.registryName)
-                .setUnlocalizedName("msc." + name)
-                .setCreativeTab(SpawnerControl.creativeTab);
-    }
-
-    public Item createItem() {
-        return new ItemBlockControlSpawner(getBlock(), getName()).setRegistryName(this.registryName);
-    }
-
     public Block getBlock() {
-        return ForgeRegistries.BLOCKS.getValue(this.registryName);
+        return this.block.get();
     }
 
     public Item getItem() {
-        return ForgeRegistries.ITEMS.getValue(this.registryName);
+        return this.item.get();
     }
 
-    public Configuration getConfiguration() {
-        return configuration;
+    public Node getConfiguration() {
+        return config;
     }
 
-    public ConfigCategory getConfigCategory() {
-        return getConfiguration().getCategory(name);
-    }
-
-    public String getName() {
-        return name;
+    private String getName() {
+        return this.config.getName();
     }
 
     public ResourceLocation getRegistryName() {
         return registryName;
-    }
-
-    public SpawnerConfig getConfigObject() {
-        return configObject;
     }
 }

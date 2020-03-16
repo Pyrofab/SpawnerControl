@@ -1,79 +1,78 @@
 package ladysnake.spawnercontrol;
 
 import com.google.common.annotations.VisibleForTesting;
-import ladysnake.spawnercontrol.config.MSCConfig;
+import ladysnake.spawnercontrol.config.MscConfig;
 import ladysnake.spawnercontrol.config.SpawnerConfig;
 import ladysnake.spawnercontrol.controlledspawner.BlockControlledSpawner;
 import ladysnake.spawnercontrol.controlledspawner.CapabilityControllableSpawner;
 import ladysnake.spawnercontrol.controlledspawner.IControllableSpawner;
 import ladysnake.spawnercontrol.controlledspawner.TileEntityControlledSpawner;
 import net.minecraft.block.Block;
-import net.minecraft.block.BlockMobSpawner;
-import net.minecraft.entity.EntityList;
-import net.minecraft.entity.EntityLiving;
-import net.minecraft.entity.EntityLivingBase;
-import net.minecraft.entity.item.EntityItem;
+import net.minecraft.block.Blocks;
+import net.minecraft.block.SpawnerBlock;
+import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.MobEntity;
+import net.minecraft.entity.item.ItemEntity;
 import net.minecraft.entity.monster.IMob;
-import net.minecraft.init.Items;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.NBTBase;
-import net.minecraft.nbt.NBTTagCompound;
-import net.minecraft.nbt.NBTTagLong;
-import net.minecraft.tileentity.MobSpawnerBaseLogic;
+import net.minecraft.item.Items;
+import net.minecraft.nbt.CompoundNBT;
+import net.minecraft.nbt.NBTUtil;
+import net.minecraft.particles.ParticleTypes;
+import net.minecraft.tileentity.MobSpawnerTileEntity;
 import net.minecraft.tileentity.TileEntity;
-import net.minecraft.tileentity.TileEntityMobSpawner;
-import net.minecraft.util.EnumParticleTypes;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.world.World;
-import net.minecraft.world.WorldServer;
+import net.minecraft.world.dimension.DimensionType;
+import net.minecraft.world.server.ServerWorld;
+import net.minecraft.world.spawner.AbstractSpawner;
 import net.minecraftforge.event.AttachCapabilitiesEvent;
+import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.event.entity.living.LivingDeathEvent;
 import net.minecraftforge.event.entity.living.LivingDropsEvent;
 import net.minecraftforge.event.entity.living.LivingExperienceDropEvent;
 import net.minecraftforge.event.entity.living.LivingSpawnEvent;
 import net.minecraftforge.event.world.BlockEvent;
-import net.minecraftforge.fml.common.FMLCommonHandler;
-import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.fml.common.eventhandler.Event;
-import net.minecraftforge.fml.common.eventhandler.EventPriority;
-import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
-import net.minecraftforge.fml.common.gameevent.TickEvent;
-import net.minecraftforge.fml.common.registry.ForgeRegistries;
-import net.minecraftforge.fml.relauncher.Side;
+import net.minecraftforge.eventbus.api.Event;
+import net.minecraftforge.eventbus.api.EventPriority;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.LogicalSide;
+import net.minecraftforge.registries.ForgeRegistries;
 
+import java.lang.ref.WeakReference;
 import java.util.*;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutionException;
 
 /**
  * Class handling spawner-related events
  */
-@Mod.EventBusSubscriber(modid = SpawnerControl.MOD_ID)
-public class SpawnerEventHandler {
+public final class SpawnerEventHandler {
 
     private static final String NBT_TAG_SPAWNER_POS = SpawnerControl.MOD_ID + ":spawnerPos";
     /**
      * Set caching all known mob spawner tile entities that are affected by the mod
-     * TODO consider spawner entities as well (cf. {@link MobSpawnerBaseLogic#getSpawnerEntity()})
+     * TODO consider spawner entities as well (cf. {@link AbstractSpawner#getSpawnerEntity()})
      */
+    // use weak references to avoid memory leaks, and synchronize the set in case forge's guess for logical side is wrong
     @VisibleForTesting
-    static Set<TileEntityMobSpawner> allSpawners;
+    Queue<WeakReference<MobSpawnerTileEntity>> allSpawners = new ConcurrentLinkedQueue<>();
+    private final MscConfig mainConfig;
 
-    static {
-        // use weak references to avoid memory leaks, and synchronize the set in case forge's guess for logical side is wrong
-        allSpawners = Collections.synchronizedSet(Collections.newSetFromMap(new WeakHashMap<>()));
+    public SpawnerEventHandler(MscConfig mainConfig) {
+        this.mainConfig = mainConfig;
     }
 
     @SubscribeEvent
-    public static void onAttachCapabilities(AttachCapabilitiesEvent<TileEntity> event) {
+    public void onAttachCapabilities(AttachCapabilitiesEvent<TileEntity> event) {
         // check the side to avoid adding client tile entities to the set, the world isn't set at this time
-        if (event.getObject() instanceof TileEntityMobSpawner) {
-            TileEntityMobSpawner spawner = (TileEntityMobSpawner) event.getObject();
-            if ((MSCConfig.alterVanillaSpawner || spawner instanceof TileEntityControlledSpawner)
-                    && FMLCommonHandler.instance().getEffectiveSide() == Side.SERVER) {
-                allSpawners.add(spawner);
+        if (event.getObject() instanceof MobSpawnerTileEntity) {
+            MobSpawnerTileEntity spawner = (MobSpawnerTileEntity) event.getObject();
+            if ((mainConfig.alterVanillaSpawner || spawner instanceof TileEntityControlledSpawner)) {
+                allSpawners.add(new WeakReference<>(spawner));
             }
             if (!(spawner instanceof TileEntityControlledSpawner)) // custom spawners have their own handler
                 event.addCapability(CapabilityControllableSpawner.CAPABILITY_KEY, new CapabilityControllableSpawner.Provider(spawner));
@@ -81,12 +80,12 @@ public class SpawnerEventHandler {
     }
 
     @SubscribeEvent
-    public static void onTickWorldTick(TickEvent.WorldTickEvent event) {
-        if (event.phase == TickEvent.Phase.START || event.side == Side.CLIENT) return;
-        for (Iterator<TileEntityMobSpawner> iterator = allSpawners.iterator(); iterator.hasNext(); ) {
-            TileEntityMobSpawner spawner = iterator.next();
+    public void onTickWorldTick(TickEvent.WorldTickEvent event) {
+        if (event.phase == TickEvent.Phase.START || event.side == LogicalSide.CLIENT) return;
+        for (Iterator<WeakReference<MobSpawnerTileEntity>> iterator = allSpawners.iterator(); iterator.hasNext(); ) {
+            MobSpawnerTileEntity spawner = iterator.next().get();
             // maintain the spawner list independently to avoid the cost of iterating through every tile entity
-            if (spawner.isInvalid()) {
+            if (spawner == null || spawner.getWorld() == null || spawner.getWorld().isRemote || spawner.isRemoved()) {
                 iterator.remove();
                 continue;
             }
@@ -94,14 +93,15 @@ public class SpawnerEventHandler {
                 IControllableSpawner handler = CapabilityControllableSpawner.getHandler(spawner);
                 // handle obsolete spawners
                 if (!handler.canSpawn()) {
-                    if (handler.getConfig().breakSpawner)
-                        spawner.getWorld().setBlockToAir(spawner.getPos());
+                    if (handler.getConfig().breakSpawner) {
+                        spawner.getWorld().setBlockState(spawner.getPos(), Blocks.AIR.getDefaultState());
+                    }
                     // spawn particles for disabled spawners
                     if (!spawner.getWorld().isRemote) {
-                        double x = (double) ((float) spawner.getPos().getX() + spawner.getWorld().rand.nextFloat());
-                        double y = (double) ((float) spawner.getPos().getY() + spawner.getWorld().rand.nextFloat());
-                        double z = (double) ((float) spawner.getPos().getZ() + spawner.getWorld().rand.nextFloat());
-                        ((WorldServer) spawner.getWorld()).spawnParticle(EnumParticleTypes.SMOKE_LARGE, x, y, z, 3, 0, 0, 0, 0.0);
+                        double x = (float) spawner.getPos().getX() + spawner.getWorld().rand.nextFloat();
+                        double y = (float) spawner.getPos().getY() + spawner.getWorld().rand.nextFloat();
+                        double z = (float) spawner.getPos().getZ() + spawner.getWorld().rand.nextFloat();
+                        ((ServerWorld) spawner.getWorld()).spawnParticle(ParticleTypes.LARGE_SMOKE, x, y, z, 3, 0, 0, 0, 0.0);
                     }
                 }
             }
@@ -112,8 +112,8 @@ public class SpawnerEventHandler {
      * Runs the main logic of the mod as well as most of the logic associated with {@link SpawnerConfig.SpawnConditions}
      */
     @SubscribeEvent(priority = EventPriority.LOWEST)
-    public static void onCheckSpawnerSpawn(LivingSpawnEvent.CheckSpawn event) {
-        MobSpawnerBaseLogic spawner = event.getSpawner();
+    public void onCheckSpawnerSpawn(LivingSpawnEvent.CheckSpawn event) {
+        AbstractSpawner spawner = event.getSpawner();
         // only affect spawner-caused spawns
         if (spawner != null) {
             // if there is no tile entity nor spawner entity, the spawner was very likely destroyed by a previous spawn of the same batch
@@ -127,33 +127,35 @@ public class SpawnerEventHandler {
             boolean canSpawn;
 
             // Runs logic associated with SpawnConditions
-            if (event.getResult() == Event.Result.DEFAULT && event.getEntityLiving() instanceof EntityLiving) {
-                EntityLiving spawned = (EntityLiving) event.getEntityLiving();
+            if (event.getResult() == Event.Result.DEFAULT && event.getEntityLiving() instanceof MobEntity) {
+                MobEntity spawned = (MobEntity) event.getEntityLiving();
                 // keep the collision check because mobs spawning in walls is not good
-                canSpawn = spawned.isNotColliding();
+                canSpawn = spawned.isNotColliding(event.getWorld());
                 // Tweaks pendingSpawners to prevent light from disabling spawns, except when the entity can see the sun
                 if (cfg.spawnConditions.forceSpawnerMobSpawns && event.getEntity() instanceof IMob) {
-                    if (cfg.spawnConditions.checkSunlight)
-                        canSpawn &= !(event.getWorld().canSeeSky(new BlockPos(spawned)) && event.getWorld().isDaytime());
+                    if (cfg.spawnConditions.checkSunlight) {
+                        canSpawn &= !(event.getWorld().canBlockSeeSky(new BlockPos(spawned)) && event.getWorld().getDimension().isDaytime());
+                    }
                 } else if (!cfg.spawnConditions.forceSpawnerAllSpawns)
-                    canSpawn &= spawned.getCanSpawnHere(); // this entity is not affected, do not interfere
+                    canSpawn &= spawned.canSpawn(event.getWorld(), event.getSpawnReason()); // this entity is not affected, do not interfere
             } else {
                 canSpawn = event.getResult() == Event.Result.ALLOW;
             }
             // increments spawn counts and prevents spawns if over the limit
             if (canSpawn) {
                 if (handler.canSpawn()) {
-                    if (!handler.getConfig().incrementOnMobDeath)
+                    if (!handler.getConfig().incrementOnMobDeath) {
                         handler.incrementSpawnedMobsCount();
+                    }
 
-                    NBTTagCompound compound = new NBTTagCompound();
-                    World spawnerWorld = spawner.getSpawnerWorld();
+                    CompoundNBT compound = new CompoundNBT();
+                    World spawnerWorld = spawner.getWorld();
                     // When unit testing, the world will be null
                     //noinspection ConstantConditions
                     if (spawnerWorld != null) {
-                        compound.setInteger("dimension", spawnerWorld.provider.getDimension());
-                        compound.setLong("pos", spawner.getSpawnerPosition().toLong());
-                        event.getEntity().getEntityData().setTag(NBT_TAG_SPAWNER_POS, compound);
+                        compound.putString("dimension", Objects.requireNonNull(spawnerWorld.getDimension().getType().getRegistryName()).toString());
+                        compound.put("pos", NBTUtil.writeBlockPos(spawner.getSpawnerPosition()));
+                        event.getEntity().getPersistentData().put(NBT_TAG_SPAWNER_POS, compound);
                     }
                     event.setResult(Event.Result.ALLOW);
                 } else {
@@ -166,7 +168,7 @@ public class SpawnerEventHandler {
     }
 
     @SubscribeEvent
-    public static void onLivingSpawnSpecialSpawn(LivingSpawnEvent.SpecialSpawn event) {
+    public void onLivingSpawnSpecialSpawn(LivingSpawnEvent.SpecialSpawn event) {
         if (event.getSpawner() == null) return;     // this can't happen currently but it will with forge's event
         IControllableSpawner handler = SpawnerUtil.getHandlerIfAffected(event.getWorld(), event.getSpawner().getSpawnerPosition());
         if (handler == null) return;
@@ -177,35 +179,32 @@ public class SpawnerEventHandler {
     }
 
     @SubscribeEvent
-    public static void onLivingDeath(LivingDeathEvent event) {
-        NBTTagCompound data = event.getEntityLiving().getEntityData();
-        if (data.hasKey(NBT_TAG_SPAWNER_POS)) {
-            NBTBase nbt = event.getEntityLiving().getEntityData().getTag(NBT_TAG_SPAWNER_POS);
-            World world;
-            long spawnerPos;
-            if (nbt instanceof NBTTagCompound) {
-                spawnerPos = ((NBTTagCompound) nbt).getLong("pos");
-                world = FMLCommonHandler.instance().getMinecraftServerInstance().getWorld(((NBTTagCompound) nbt).getInteger("dimension"));
-            } else if (nbt instanceof NBTTagLong) {
-                spawnerPos = ((NBTTagLong) nbt).getLong();
-                world = event.getEntity().getEntityWorld();
-            } else return;
-            TileEntity tile = world.getTileEntity(BlockPos.fromLong(spawnerPos));
-            if (tile instanceof TileEntityMobSpawner) {
-                TileEntityMobSpawner spawner = (TileEntityMobSpawner) tile;
-                IControllableSpawner handler = CapabilityControllableSpawner.getHandler(spawner);
-                if (handler.getConfig().incrementOnMobDeath)
-                    handler.incrementSpawnedMobsCount();
+    public void onLivingDeath(LivingDeathEvent event) {
+        CompoundNBT data = event.getEntityLiving().getPersistentData();
+        if (data.contains(NBT_TAG_SPAWNER_POS)) {
+            CompoundNBT nbt = data.getCompound(NBT_TAG_SPAWNER_POS);
+            @SuppressWarnings("ConstantConditions") DimensionType dimension = DimensionType.byName(ResourceLocation.tryCreate(nbt.getString("dimension")));
+            if (dimension != null) {
+                World world = ((ServerWorld) event.getEntity().world).getServer().getWorld(dimension);
+                TileEntity tile = world.getTileEntity(NBTUtil.readBlockPos(nbt.getCompound("pos")));
+                if (tile instanceof MobSpawnerTileEntity) {
+                    MobSpawnerTileEntity spawner = (MobSpawnerTileEntity) tile;
+                    IControllableSpawner handler = CapabilityControllableSpawner.getHandler(spawner);
+                    if (handler.getConfig().incrementOnMobDeath)
+                        handler.incrementSpawnedMobsCount();
+                }
             }
         }
     }
 
     @SubscribeEvent
-    public static void onLivingExperienceDrop(LivingExperienceDropEvent event) {
-        SpawnerConfig cfg = SpawnerUtil.getConfig(event.getEntityLiving().getEntityData().getTag(NBT_TAG_SPAWNER_POS));
+    public void onLivingExperienceDrop(LivingExperienceDropEvent event) {
+        if (!event.getEntity().world.isRemote) return;
+
+        SpawnerConfig cfg = SpawnerUtil.getConfig(((ServerWorld) event.getEntity().world).getServer(), event.getEntityLiving().getPersistentData().getCompound(NBT_TAG_SPAWNER_POS));
         if (cfg != null) {
             try {
-                ResourceLocation rl = EntityList.getKey(event.getEntity());
+                ResourceLocation rl = event.getEntity().getType().getRegistryName();
                 if (rl != null) {
                     SpawnerConfig.MobLoot.MobLootEntry entry = cfg.mobLoot.lootEntries.get(rl);
                     event.setDroppedExperience(MathHelper.floor(event.getOriginalExperience() * entry.xpMultiplier + entry.flatXpIncrease + (event.getDroppedExperience() - event.getOriginalExperience())));
@@ -217,44 +216,47 @@ public class SpawnerEventHandler {
     }
 
     @SubscribeEvent(priority = EventPriority.LOWEST)
-    public static void onLivingItemDrop(LivingDropsEvent event) {
-        EntityLivingBase livingBase = event.getEntityLiving();
-        SpawnerConfig cfg = SpawnerUtil.getConfig(livingBase.getEntityData().getTag(NBT_TAG_SPAWNER_POS));
+    public void onLivingItemDrop(LivingDropsEvent event) {
+        LivingEntity livingBase = event.getEntityLiving();
+        SpawnerConfig cfg = SpawnerUtil.getConfig(((ServerWorld) event.getEntity().world).getServer(), livingBase.getPersistentData().getCompound(NBT_TAG_SPAWNER_POS));
         if (cfg != null) {
             try {
-                ResourceLocation rl = EntityList.getKey(event.getEntity());
+                ResourceLocation rl = event.getEntity().getType().getRegistryName();
                 if (rl != null) {
                     SpawnerConfig.MobLoot.MobLootEntry entry = cfg.mobLoot.lootEntries.get(rl);
-                    List<EntityItem> drops = event.getDrops();
+                    Collection<ItemEntity> drops = event.getDrops();
                     if (entry.removeAllItems) {
                         drops.clear();
                     } else {
-                        for (EntityItem drop : drops.toArray(new EntityItem[0])) {
+                        for (ItemEntity drop : drops.toArray(new ItemEntity[0])) {
                             ItemStack stack = drop.getItem();
                             for (String s : entry.removedItems) {
                                 String[] split = s.split(":");
-                                if (stack.getUnlocalizedName().equals(split[0] + ":" + split[1])
-                                        && (split.length < 3 || stack.getMetadata() == Integer.parseInt(split[2]))) {
+                                ResourceLocation dropId = ResourceLocation.tryCreate(split[0] + ":" + split[1]);
+                                if (Objects.equals(stack.getItem().getRegistryName(), dropId)
+// TODO replace with NBT check                                       && (split.length < 3 || stack.getMetadata() == Integer.parseInt(split[2]))
+                                ) {
                                     drops.remove(drop);
                                 }
                             }
                         }
                     }
                     World world = livingBase.world;
-                    double x = livingBase.posX, y = livingBase.posY, z = livingBase.posZ;
-                    for (String s : entry.addedItems)
-                    {
+                    double x = livingBase.getX(), y = livingBase.getY(), z = livingBase.getZ();
+                    for (String s : entry.addedItems) {
                         String[] split = s.split(":");
                         if (split.length < 5 || world.rand.nextDouble() < Double.parseDouble(split[4])) {
                             ResourceLocation itemRL = new ResourceLocation(split[0], split[1]);
                             Item item = ForgeRegistries.ITEMS.getValue(itemRL);
                             if (item == null) {
-                                item = Item.getItemFromBlock(ForgeRegistries.BLOCKS.getValue(itemRL));
+                                // the block registry has a default value
+                                item = Objects.requireNonNull(ForgeRegistries.BLOCKS.getValue(itemRL)).asItem();
                             }
                             if (item != Items.AIR) {
                                 int quantity = split.length < 3 ? 1 : Integer.parseInt(split[2]);
-                                int meta = split.length < 4 ? 0 : Integer.parseInt(split[3]);
-                                drops.add(new EntityItem(world, x, y, z, new ItemStack(item, quantity, meta)));
+                                // TODO handle custom NBT
+//                                int meta = split.length < 4 ? 0 : Integer.parseInt(split[3]);
+                                drops.add(new ItemEntity(world, x, y, z, new ItemStack(item, quantity)));
                             } else {
                                 SpawnerControl.LOGGER.error("Error while handling spawned item drops");
                             }
@@ -272,13 +274,14 @@ public class SpawnerEventHandler {
      * Drops from the mod's spawner are also handled here
      */
     @SubscribeEvent
-    public static void onBlockBreak(BlockEvent.BreakEvent event) {
+    public void onBlockBreak(BlockEvent.BreakEvent event) {
         SpawnerConfig cfg = SpawnerUtil.getConfig(event.getWorld(), event.getPos());
+        Random rand = event.getWorld().getRandom();
         if (cfg != null) {
             int xp = cfg.xpDropped;
             if (cfg.randXpVariation > 0) {
-                xp += event.getWorld().rand.nextInt(cfg.randXpVariation)
-                        + event.getWorld().rand.nextInt(cfg.randXpVariation);
+                xp += rand.nextInt(cfg.randXpVariation)
+                        + rand.nextInt(cfg.randXpVariation);
             }
             event.setExpToDrop(xp);
         }
@@ -289,15 +292,15 @@ public class SpawnerEventHandler {
      * Drops from this mod's own spawner are also handled here for convenience.
      */
     @SubscribeEvent
-    public static void onBlockHarvestDrops(BlockEvent.HarvestDropsEvent event) {
+    public void onBlockHarvestDrops(BlockEvent.HarvestDropsEvent event) {
         if (event.getHarvester() != null) {
             SpawnerConfig cfg;
             // need to use the block as the tile entity is already gone
             Block block = event.getState().getBlock();
             if (block instanceof BlockControlledSpawner)
                 cfg = ((BlockControlledSpawner) block).getConfig();
-            else if (block instanceof BlockMobSpawner && MSCConfig.alterVanillaSpawner)
-                cfg = MSCConfig.vanillaSpawnerConfig;
+            else if (block instanceof SpawnerBlock && mainConfig.alterVanillaSpawner)
+                cfg = mainConfig.vanillaSpawnerConfig;
             else return;
 
             List<ItemStack> drops = event.getDrops();
@@ -305,15 +308,16 @@ public class SpawnerEventHandler {
             for (String entry : cfg.itemsDropped) {
                 String[] split = entry.split(":");
                 if (split.length > 1) {
-                    Item item = Item.REGISTRY.getObject(new ResourceLocation(split[0], split[1]));
+                    Item item = ForgeRegistries.ITEMS.getValue(new ResourceLocation(split[0], split[1]));
                     try {
                         // get additional properties for the item stack
                         if (item != null) {
                             int count = split.length >= 3 ? Integer.parseInt(split[2]) : 1;
-                            int meta = split.length >= 4 ? Integer.parseInt(split[3]) : 0;
+                            // TODO handle custom NBT
+//                            int meta = split.length >= 4 ? Integer.parseInt(split[3]) : 0;
                             // default chance is 1
-                            if (split.length < 5 || event.getWorld().rand.nextDouble() < Double.parseDouble(split[4]))
-                                drops.add(new ItemStack(item, count, meta));
+                            if (split.length < 5 || event.getWorld().getRandom().nextDouble() < Double.parseDouble(split[4]))
+                                drops.add(new ItemStack(item, count));
                         }
                     } catch (NumberFormatException ignored) {
                     }

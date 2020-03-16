@@ -1,58 +1,77 @@
 package ladysnake.spawnercontrol.controlledspawner;
 
 import ladysnake.spawnercontrol.config.SpawnerConfig;
-import net.minecraft.block.BlockMobSpawner;
-import net.minecraft.block.SoundType;
-import net.minecraft.block.state.IBlockState;
-import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.item.ItemMonsterPlacer;
+import net.minecraft.block.BlockState;
+import net.minecraft.block.SpawnerBlock;
+import net.minecraft.client.resources.I18n;
+import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
-import net.minecraft.tileentity.MobSpawnerBaseLogic;
+import net.minecraft.item.SpawnEggItem;
+import net.minecraft.tileentity.MobSpawnerTileEntity;
 import net.minecraft.tileentity.TileEntity;
-import net.minecraft.tileentity.TileEntityMobSpawner;
-import net.minecraft.util.EnumFacing;
-import net.minecraft.util.EnumHand;
+import net.minecraft.util.ActionResultType;
+import net.minecraft.util.Hand;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.BlockRayTraceResult;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.text.TranslationTextComponent;
+import net.minecraft.world.IBlockReader;
 import net.minecraft.world.World;
+import net.minecraft.world.spawner.AbstractSpawner;
 
-public class BlockControlledSpawner extends BlockMobSpawner {
-    private SpawnerConfig config;
+import javax.annotation.Nonnull;
 
-    public BlockControlledSpawner(SpawnerConfig config) {
-        super();
+public class BlockControlledSpawner extends SpawnerBlock {
+    private static final String DEFAULT_LANG_KEY = "tile.msc.controlled_spawner.name";
+
+    private final SpawnerConfig config;
+    private final String name;
+
+    public BlockControlledSpawner(Properties props, SpawnerConfig config, String name) {
+        super(props);
         this.config = config;
-        this.setHardness(5.0F);
-        this.setSoundType(SoundType.METAL);
-        this.disableStats();
+        this.name = name;
     }
 
+
+    @SuppressWarnings("deprecation")
+    @Nonnull
     @Override
-    public boolean onBlockActivated(World worldIn, BlockPos pos, IBlockState state, EntityPlayer player, EnumHand hand, EnumFacing facing, float hitX, float hitY, float hitZ) {
-        ItemStack itemstack = player.getHeldItem(hand);
-        if (itemstack.getItem() instanceof ItemMonsterPlacer) {
+    public ActionResultType onUse(BlockState state, World worldIn, BlockPos pos, PlayerEntity player, Hand hand, BlockRayTraceResult rayTraceResult) {
+        ItemStack stack = player.getHeldItem(hand);
+        if (stack.getItem() instanceof SpawnEggItem) {
             TileEntity tileentity = worldIn.getTileEntity(pos);
 
-            if (tileentity instanceof TileEntityMobSpawner)
-            {
-                MobSpawnerBaseLogic mobspawnerbaselogic = ((TileEntityMobSpawner)tileentity).getSpawnerBaseLogic();
-                mobspawnerbaselogic.setEntityId(ItemMonsterPlacer.getNamedIdFrom(itemstack));
+            if (tileentity instanceof MobSpawnerTileEntity) {
+                AbstractSpawner logic = ((MobSpawnerTileEntity) tileentity).getSpawnerBaseLogic();
+                logic.setEntityType(((SpawnEggItem) stack.getItem()).getType(stack.getTag()));
                 tileentity.markDirty();
-                worldIn.notifyBlockUpdate(pos, state, state, 3);
+                worldIn.setBlockState(pos, state, 3);
 
-                if (!player.capabilities.isCreativeMode)
-                {
-                    itemstack.shrink(1);
+                if (!player.abilities.isCreativeMode) {
+                    stack.shrink(1);
                 }
 
-                return true;
+                return ActionResultType.SUCCESS;
             }
         }
-        return super.onBlockActivated(worldIn, pos, state, player, hand, facing, hitX, hitY, hitZ);
+        return super.onUse(state, worldIn, pos, player, hand, rayTraceResult);
     }
 
     @Override
-    public TileEntity createNewTileEntity(World worldIn, int meta) {
+    public TileEntity createNewTileEntity(IBlockReader reader) {
         return new TileEntityControlledSpawner();
+    }
+
+    @Nonnull
+    @Override
+    public ITextComponent getNameTextComponent() {
+        // in case someone makes a custom lang file to translate their spawner names
+        if (I18n.hasKey(getTranslationKey())) {
+            return super.getNameTextComponent();
+        }
+        // return a default readable value
+        return new TranslationTextComponent(DEFAULT_LANG_KEY, this.name);
     }
 
     public SpawnerConfig getConfig() {

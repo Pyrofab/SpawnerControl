@@ -1,59 +1,64 @@
 package ladysnake.spawnercontrol;
 
-import ladysnake.spawnercontrol.config.MSCConfig;
+import ladysnake.spawnercontrol.config.MscConfig;
 import ladysnake.spawnercontrol.config.SpawnerConfig;
 import ladysnake.spawnercontrol.controlledspawner.CapabilityControllableSpawner;
 import ladysnake.spawnercontrol.controlledspawner.IControllableSpawner;
-import net.minecraft.nbt.NBTBase;
-import net.minecraft.nbt.NBTTagCompound;
-import net.minecraft.nbt.NBTTagLong;
+import net.minecraft.nbt.CompoundNBT;
+import net.minecraft.nbt.NBTUtil;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.tileentity.MobSpawnerTileEntity;
 import net.minecraft.tileentity.TileEntity;
-import net.minecraft.tileentity.TileEntityMobSpawner;
+import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.IWorld;
 import net.minecraft.world.World;
-import net.minecraftforge.fml.common.FMLCommonHandler;
+import net.minecraft.world.dimension.DimensionType;
 
 import javax.annotation.Nullable;
 
 public class SpawnerUtil {
 
     @Nullable
-    public static SpawnerConfig getConfig(@Nullable NBTBase nbt) {
-        long spawnerPos;
-        World world;
-        if (nbt instanceof NBTTagCompound && ((NBTTagCompound) nbt).hasKey("pos")) {
-            spawnerPos = ((NBTTagCompound) nbt).getLong("pos");
-            world = FMLCommonHandler.instance().getMinecraftServerInstance().getWorld(((NBTTagCompound) nbt).getInteger("dimension"));
-        } else if (nbt instanceof NBTTagLong) {     // this is only here to prevent crashes with old worlds. It is not reliable.
-            spawnerPos = ((NBTTagLong) nbt).getLong();
-            world = FMLCommonHandler.instance().getMinecraftServerInstance().getWorld(0);
-        } else return null;
-        return getConfig(world, BlockPos.fromLong(spawnerPos));
+    public static SpawnerConfig getConfig(MinecraftServer server, CompoundNBT nbt) {
+        if (nbt.contains("pos")) {
+            BlockPos spawnerPos = NBTUtil.readBlockPos(nbt.getCompound("pos"));
+            @SuppressWarnings("ConstantConditions") DimensionType dimension = DimensionType.byName(ResourceLocation.tryCreate(nbt.getString("dimension")));
+            if (dimension != null) {
+                World world = server.getWorld(dimension);
+                return getConfig(world, spawnerPos);
+            }
+        }
+        return null;
     }
 
     @Nullable
-    public static SpawnerConfig getConfig(World world, BlockPos spawnerPos) {
+    public static SpawnerConfig getConfig(IWorld world, BlockPos spawnerPos) {
         TileEntity spawnerTE = world.getTileEntity(spawnerPos);
         // if it is not a spawner, it does not have a config
-        if (!(spawnerTE instanceof TileEntityMobSpawner)) return null;
+        if (!(spawnerTE instanceof MobSpawnerTileEntity)) return null;
+        MscConfig mainConfig = SpawnerControl.instance().getConfigManager().getMainConfig();
         // if no custom spawner is registered, every spawner is a vanilla one or equivalent
-        if (MSCConfig.customSpawners.length == 0)
-            return MSCConfig.alterVanillaSpawner ? MSCConfig.vanillaSpawnerConfig : null;
-        SpawnerConfig ret = CapabilityControllableSpawner.getHandler((TileEntityMobSpawner) spawnerTE).getConfig();
+        if (mainConfig.customSpawners.length == 0) {
+            return mainConfig.alterVanillaSpawner ? mainConfig.vanillaSpawnerConfig : null;
+        }
+        SpawnerConfig ret = CapabilityControllableSpawner.getHandler((MobSpawnerTileEntity) spawnerTE).getConfig();
         // filter out non-mod spawners directly if they are to be ignored
-        if (ret == MSCConfig.vanillaSpawnerConfig && !MSCConfig.alterVanillaSpawner)
+        if (ret == mainConfig.vanillaSpawnerConfig && !mainConfig.alterVanillaSpawner)
             return null;
         return ret;
     }
 
     @Nullable
-    public static IControllableSpawner getHandlerIfAffected(World world, BlockPos spawnerPos) {
+    public static IControllableSpawner getHandlerIfAffected(IWorld world, BlockPos spawnerPos) {
         TileEntity spawnerTE = world.getTileEntity(spawnerPos);
-        if (!(spawnerTE instanceof TileEntityMobSpawner)) return null;
-        IControllableSpawner ret = CapabilityControllableSpawner.getHandler((TileEntityMobSpawner) spawnerTE);
+        if (!(spawnerTE instanceof MobSpawnerTileEntity)) return null;
+        IControllableSpawner ret = CapabilityControllableSpawner.getHandler((MobSpawnerTileEntity) spawnerTE);
         // filter out non-mod spawners directly if they are to be ignored
-        if (ret.getConfig() == MSCConfig.vanillaSpawnerConfig && !MSCConfig.alterVanillaSpawner)
+        MscConfig mainConfig = SpawnerControl.instance().getConfigManager().getMainConfig();
+        if (ret.getConfig() == mainConfig.vanillaSpawnerConfig && !mainConfig.alterVanillaSpawner) {
             return null;
+        }
         return ret;
     }
 }

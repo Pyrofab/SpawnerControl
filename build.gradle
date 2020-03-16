@@ -1,69 +1,189 @@
 buildscript {
     repositories {
+        maven { url = 'https://files.minecraftforge.net/maven' }
         jcenter()
-        maven {
-            name = "forge"
-            url = "https://files.minecraftforge.net/maven"
-        }
+        mavenCentral()
     }
     dependencies {
-        classpath "net.minecraftforge.gradle:ForgeGradle:2.3-SNAPSHOT"
+        classpath group: 'net.minecraftforge.gradle', name: 'ForgeGradle', version: '3.+', changing: true
     }
 }
 
-apply plugin: "net.minecraftforge.gradle.forge"
+plugins {
+    id "com.github.johnrengelman.shadow" version "5.0.0"
+}
+
+apply plugin: 'net.minecraftforge.gradle'
+apply plugin: 'eclipse'
+apply plugin: 'maven-publish'
 
 version = modVersion
 group = modGroup
 archivesBaseName = modBaseName
 
-sourceCompatibility = targetCompatibility = '1.8'
-
-minecraft {
-    version = project.forgeVersion
-    runDir = "run"
-
-    // the mappings can be changed at any time, and must be in the following format.
-    // snapshot_YYYYMMDD   snapshot are built nightly.
-    // stable_#            stables are built at the discretion of the MCP team.
-    // Use non-default mappings at your own risk. they may not always work.
-    // simply re-run your setup task after changing the mappings to update your workspace.
-    mappings = project.mcpVersion
-    replace "@VERSION@", project.version
-}
+sourceCompatibility = targetCompatibility = compileJava.sourceCompatibility = compileJava.targetCompatibility = '1.8' // Need this here so eclipse task generates correctly.
 
 repositories {
     mavenCentral()
+    maven {
+        url "https://maven.tterrag.com/"
+    }
+    maven {
+        url "https://maven.fabricmc.net"
+    }
 }
 
+minecraft {
+    mappings channel: 'snapshot', version: project.mcpVersion
+    // makeObfSourceJar = false // an Srg named sources jar is made by default. uncomment this to disable.
+
+     accessTransformer = file('src/main/resources/META-INF/spawnercontrol_at.cfg')
+
+    // Default run configurations.
+    // These can be tweaked, removed, or duplicated as needed.
+    runs {
+        client {
+            workingDirectory project.file('run')
+
+            // Recommended logging data for a userdev environment
+            property 'forge.logging.markers', 'SCAN,REGISTRIES,REGISTRYDUMP'
+
+            // Recommended logging level for the console
+            property 'forge.logging.console.level', 'debug'
+
+            mods {
+                spawnercontrol {
+                    source sourceSets.main
+                }
+            }
+        }
+        clientfewerconsolemessages {
+            workingDirectory project.file('run')
+
+            // Recommended logging data for a userdev environment
+            property 'forge.logging.markers', 'SCAN,REGISTRIES,REGISTRYDUMP'
+
+            // Recommended logging level for the console
+            property 'forge.logging.console.level', 'debug'
+
+            mods {
+                spawnercontrol {
+                    source sourceSets.main
+                }
+            }
+        }
+        server {
+            workingDirectory project.file('run')
+
+            // Recommended logging data for a userdev environment
+            property 'forge.logging.markers', 'SCAN,REGISTRIES,REGISTRYDUMP'
+
+            // Recommended logging level for the console
+            property 'forge.logging.console.level', 'debug'
+
+            mods {
+                spawnercontrol {
+                    source sourceSets.main
+                }
+            }
+        }
+
+        data {
+            workingDirectory project.file('run')
+
+            // Recommended logging data for a userdev environment
+            property 'forge.logging.markers', 'SCAN,REGISTRIES,REGISTRYDUMP'
+
+            // Recommended logging level for the console
+            property 'forge.logging.console.level', 'debug'
+
+            args '--mod', 'minecraftbyexample', '--all', '--output', file('src/generated/resources/')
+
+            mods {
+                minecraftbyexample {
+                    source sourceSets.main
+                }
+            }
+        }
+    }
+}
+
+configurations.implementation.extendsFrom(configurations.shadow)
+
 dependencies {
+    // Specify the version of Minecraft to use, If this is any group other then 'net.minecraft' it is assumed
+    // that the dep is a ForgeGradle 'patcher' dependency. And it's patches will be applied.
+    // The userdev artifact is a special name and will get all sorts of transformations applied to it.
+    minecraft "net.minecraftforge:forge:${mcVersion}-${forgeVersion}"
+    shadow "me.zeroeightsix:fiber:0.8.0-3"
+    compileOnly "org.jetbrains:annotations:19.0.0"
     testCompile group: 'junit', name: 'junit', version: '4.12'
     testCompile "org.mockito:mockito-core:2.+"
+
+}
+
+// Example for how to get properties into the manifest for reading by the runtime..
+jar {
+    manifest {
+        attributes([
+                "Implementation-Title": project.name,
+                "Implementation-Version": "${project.version}",
+                "Implementation-Vendor" :"${project.group}",
+                "Implementation-Timestamp": new Date().format("yyyy-MM-dd'T'HH:mm:ssZ"),
+                'FMLAT': 'spawnercontrol_at.cfg'
+        ])
+    }
+}
+
+shadowJar {
+    archiveClassifier = ""
+    configurations = [project.configurations.shadow]
 }
 
 processResources {
     // this will ensure that this task is redone when the versions change.
     inputs.property "modVersion", project.version
-    inputs.property "mcVersion", project.minecraft.version
+    inputs.property "mcVersion", project.mcVersion
 
     // replace stuff in mcmod.info, nothing else
     from(sourceSets.main.resources.srcDirs) {
-        include "mcmod.info"
+        include "META_INF/mods.toml"
 
         // replace version and mcversion
-        expand "modVersion": project.version, "mcVersion": project.minecraft.version
+        expand "modVersion": project.version, "mcVersion": project.mcVersion
     }
 
     // copy everything else, thats not the mcmod.info
     from(sourceSets.main.resources.srcDirs) {
-        exclude "mcmod.info"
+        exclude "META_INF/mods.toml"
     }
 
     rename '(.+_at.cfg)', 'META-INF/$1'
 }
 
-jar {
-    manifest {
-        attributes 'FMLAT': 'spawnercontrol_at.cfg'
+afterEvaluate {
+    println(shadowJar.archiveFile)
+    tasks.reobfJar.setInput({shadowJar.archiveFile})
+    reobfJar.dependsOn(shadowJar)
+}
+
+
+// Example configuration to allow publishing using the maven-publish task
+// we define a custom artifact that is sourced from the reobfJar output task
+// and then declare that to be published
+// Note you'll need to add a repository here
+def reobfFile = file("$buildDir/reobfJar/output.jar")
+def reobfArtifact = artifacts.add('default', reobfFile) {
+    type 'jar'
+    builtBy 'reobfJar'
+}
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            artifact reobfArtifact
+        }
+    }
+    repositories {
+        mavenLocal()
     }
 }

@@ -1,21 +1,19 @@
 package ladysnake.spawnercontrol;
 
+import cpw.mods.modlauncher.Launcher;
 import ladysnake.spawnercontrol.controlledspawner.CapabilityControllableSpawner;
 import ladysnake.spawnercontrol.controlledspawner.IControllableSpawner;
-import net.minecraft.init.Bootstrap;
-import net.minecraft.launchwrapper.Launch;
+import net.minecraft.tileentity.MobSpawnerTileEntity;
 import net.minecraft.tileentity.TileEntity;
-import net.minecraft.tileentity.TileEntityMobSpawner;
 import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.registry.Bootstrap;
 import net.minecraftforge.common.capabilities.Capability;
 import net.minecraftforge.common.capabilities.CapabilityDispatcher;
 import net.minecraftforge.common.capabilities.CapabilityManager;
 import net.minecraftforge.common.capabilities.ICapabilityProvider;
-import net.minecraftforge.fml.common.DummyModContainer;
-import net.minecraftforge.fml.common.Loader;
-import net.minecraftforge.fml.common.ModMetadata;
-import net.minecraftforge.fml.relauncher.ReflectionHelper;
+import net.minecraftforge.fml.common.ObfuscationReflectionHelper;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Supplier;
@@ -26,14 +24,17 @@ public class TestSetup {
 
     public static synchronized void init() {
         if (!alreadySetup) {
-            Launch.blackboard = new HashMap<>();
-            Launch.blackboard.put("fml.deobfuscatedEnvironment", true);
+            Launcher.main();
+//            Launcher.INSTANCE.blackboard().put("fml.deobfuscatedEnvironment", s -> true);
             Bootstrap.register();
-            ModMetadata testModMeta = new ModMetadata();
+/*
+            IModInfo testModMeta = new ModInfo();
             testModMeta.modId = SpawnerControl.MOD_ID;
-            Loader.instance().setupTestHarness(new DummyModContainer(testModMeta));
+            Launcher.INSTANCE.setupTestHarness(new ModInfo(testModMeta));
+*/
             CapabilityManager.INSTANCE.register(IControllableSpawner.class, new CapabilityControllableSpawner.Storage(), CapabilityControllableSpawner.DefaultControllableSpawner::new);
-            Map<String, Capability<?>> providers = ReflectionHelper.getPrivateValue(CapabilityManager.class, CapabilityManager.INSTANCE, "providers");
+            Map<String, Capability<?>> providers = ObfuscationReflectionHelper.getPrivateValue(CapabilityManager.class, CapabilityManager.INSTANCE, "providers");
+            assert providers != null;
             // artificially inject the capability as forge has not scanned the mod for annotations
             //noinspection unchecked
             CapabilityControllableSpawner.CAPABILITY_SPAWNER = (Capability<IControllableSpawner>) providers.get(IControllableSpawner.class.getName().intern());
@@ -41,12 +42,12 @@ public class TestSetup {
         }
     }
 
-    public static <T extends TileEntityMobSpawner> T makeSpawner(Supplier<T> factory) {
+    public static <T extends MobSpawnerTileEntity> T makeSpawner(Supplier<T> factory) {
         T spawner = factory.get();
         Map<ResourceLocation, ICapabilityProvider> list = new HashMap<>();
         list.put(CapabilityControllableSpawner.CAPABILITY_KEY, new CapabilityControllableSpawner.Provider(spawner));
-        CapabilityDispatcher dispatcher = new CapabilityDispatcher(list);
-        ReflectionHelper.setPrivateValue(TileEntity.class, spawner, dispatcher, "capabilities");
+        CapabilityDispatcher dispatcher = new CapabilityDispatcher(list, Collections.emptyList());
+        ObfuscationReflectionHelper.setPrivateValue(TileEntity.class, spawner, dispatcher, "capabilities");
         return spawner;
     }
 }
